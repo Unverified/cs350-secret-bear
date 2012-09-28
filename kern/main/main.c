@@ -16,6 +16,7 @@
 #include <vm.h>
 #include <syscall.h>
 #include <version.h>
+#include "opt-A0.h"
 
 /*
  * These two pieces of data are maintained by the makefiles and build system.
@@ -28,6 +29,7 @@
  */
 extern const int buildversion;
 extern const char buildconfig[];
+extern void hello();
 
 /*
  * Copyright message for the OS/161 base code.
@@ -69,6 +71,11 @@ boot(void)
 	kprintf("Put-your-group-name-here's system version %s (%s #%d)\n", 
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
+
+
+	#if OPT_A0
+		hello();
+	#endif /* OPT_A0 */
 
 	ram_bootstrap();
 	scheduler_bootstrap();
