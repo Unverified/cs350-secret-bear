@@ -10,6 +10,7 @@
 #include <curthread.h>
 #include <machine/spl.h>
 
+#include "opt-A1.h"
 ////////////////////////////////////////////////////////////
 //
 // Semaphore.
@@ -133,27 +134,31 @@ lock_destroy(struct lock *lock)
 void
 lock_acquire(struct lock *lock)
 {
-	// Write this
+	#if OPT_A1
 
-	(void)lock;  // suppress warning until code gets written
+    #else
+	    (void)lock;  // suppress warning until code gets written
+    #endif /* OPT_A1 */
 }
 
 void
 lock_release(struct lock *lock)
 {
-	// Write this
+	#if OPT_A1
 
-	(void)lock;  // suppress warning until code gets written
+    #else
+	    (void)lock;  // suppress warning until code gets written
+    #endif /* OPT_A1 */
 }
 
 int
 lock_do_i_hold(struct lock *lock)
 {
-	// Write this
+	#if OPT_A1
 
-	(void)lock;  // suppress warning until code gets written
-
-	return 1;    // dummy until code gets written
+    #else
+	    (void)lock;  // suppress warning until code gets written
+    #endif /* OPT_A1 */
 }
 
 ////////////////////////////////////////////////////////////
