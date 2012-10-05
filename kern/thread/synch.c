@@ -115,7 +115,10 @@ lock_create(const char *name)
 		return NULL;
 	}
 	
-	// add stuff here as needed
+	#if OPT_A1
+		lock->acquired = 0;
+		lock->holder = NULL;
+	#endif
 	
 	return lock;
 }
@@ -125,7 +128,11 @@ lock_destroy(struct lock *lock)
 {
 	assert(lock != NULL);
 
-	// add stuff here as needed
+	#if OPT_A1
+		int spl = splhigh();
+		assert(lock->acquired == 0);
+		splx(spl);
+	#endif
 	
 	kfree(lock->name);
 	kfree(lock);
@@ -135,9 +142,20 @@ void
 lock_acquire(struct lock *lock)
 {
 	#if OPT_A1
+		assert(lock != NULL);
+		assert(!in_interrupt);
 
-    #else
-	    (void)lock;  // suppress warning until code gets written
+		int spl = splhigh();
+		while (lock->acquired) {
+			thread_sleep(lock);
+		}
+		assert(!lock->acquired);
+
+		lock->holder = curthread;
+		lock->acquired = 1;
+		splx(spl);
+	#else
+		(void)lock;
     #endif /* OPT_A1 */
 }
 
@@ -145,9 +163,19 @@ void
 lock_release(struct lock *lock)
 {
 	#if OPT_A1
-
-    #else
-	    (void)lock;  // suppress warning until code gets written
+		assert(lock != NULL);
+		assert(lock->acquired == 1);
+		assert(lock_do_i_hold(lock));
+		
+		int spl = splhigh();
+		lock->holder = NULL;
+		lock->acquired = 0;
+		
+		assert(!lock->acquired);
+		thread_wakeup(lock);
+		splx(spl);
+	#else
+		(void)lock;		
     #endif /* OPT_A1 */
 }
 
@@ -155,9 +183,15 @@ int
 lock_do_i_hold(struct lock *lock)
 {
 	#if OPT_A1
-
-    #else
-	    (void)lock;  // suppress warning until code gets written
+		assert(lock != NULL);		
+		
+		int spl = splhigh();
+		int isEqual = curthread == lock->holder;
+		splx(spl);
+		
+		return isEqual;
+	#else
+		(void)lock;
     #endif /* OPT_A1 */
 }
 
@@ -182,7 +216,9 @@ cv_create(const char *name)
 		return NULL;
 	}
 	
-	// add stuff here as needed
+	#if OPT_A1
+	
+	#endif /* OPT_A1 */
 	
 	return cv;
 }
@@ -192,7 +228,9 @@ cv_destroy(struct cv *cv)
 {
 	assert(cv != NULL);
 
-	// add stuff here as needed
+	#if OPT_A1
+	
+	#endif /* OPT_A1 */
 	
 	kfree(cv->name);
 	kfree(cv);
@@ -201,23 +239,38 @@ cv_destroy(struct cv *cv)
 void
 cv_wait(struct cv *cv, struct lock *lock)
 {
-	// Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+	#if OPT_A1
+		assert(cv != NULL);
+		assert(lock != NULL);
+	
+	#else
+		(void)cv;
+		(void)lock;
+	#endif /* OPT_A1 */
 }
 
 void
 cv_signal(struct cv *cv, struct lock *lock)
 {
-	// Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+	#if OPT_A1
+		assert(cv != NULL);
+		assert(lock != NULL);
+	
+	#else
+		(void)cv;
+		(void)lock;
+	#endif /* OPT_A1 */
 }
 
 void
 cv_broadcast(struct cv *cv, struct lock *lock)
 {
-	// Write this
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+	#if OPT_A1
+		assert(cv != NULL);
+		assert(lock != NULL);
+	
+	#else
+		(void)cv;
+		(void)lock;
+	#endif /* OPT_A1 */
 }

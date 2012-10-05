@@ -1,3 +1,4 @@
 defs.mk
-*depend.mk
-/kern/compile/*
+*/depend.mk
+*/dependh.mk
+kern/compile/ASST?/*
