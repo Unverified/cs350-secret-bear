@@ -186,7 +186,7 @@ lock_do_i_hold(struct lock *lock)
 		assert(lock != NULL);		
 		
 		int spl = splhigh();
-		int isEqual = curthread == lock->holder;
+		int isEqual = (curthread == lock->holder) && lock->acquired;
 		splx(spl);
 		
 		return isEqual;
@@ -216,10 +216,6 @@ cv_create(const char *name)
 		return NULL;
 	}
 	
-	#if OPT_A1
-	
-	#endif /* OPT_A1 */
-	
 	return cv;
 }
 
@@ -227,10 +223,6 @@ void
 cv_destroy(struct cv *cv)
 {
 	assert(cv != NULL);
-
-	#if OPT_A1
-	
-	#endif /* OPT_A1 */
 	
 	kfree(cv->name);
 	kfree(cv);
@@ -242,7 +234,12 @@ cv_wait(struct cv *cv, struct lock *lock)
 	#if OPT_A1
 		assert(cv != NULL);
 		assert(lock != NULL);
-	
+		
+		int spl = splhigh();
+		lock_release(lock);
+		thread_sleep(cv);
+		lock_acquire(lock);
+		splx(spl);
 	#else
 		(void)cv;
 		(void)lock;
@@ -255,7 +252,11 @@ cv_signal(struct cv *cv, struct lock *lock)
 	#if OPT_A1
 		assert(cv != NULL);
 		assert(lock != NULL);
+		assert(lock_do_i_hold(lock));
 	
+		int spl = splhigh();
+		thread_wakeup_one(cv);
+		splx(spl);
 	#else
 		(void)cv;
 		(void)lock;
@@ -268,7 +269,11 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	#if OPT_A1
 		assert(cv != NULL);
 		assert(lock != NULL);
-	
+		assert(lock_do_i_hold(lock));
+		
+		int spl = splhigh();
+		thread_wakeup(cv);
+		splx(spl);
 	#else
 		(void)cv;
 		(void)lock;
