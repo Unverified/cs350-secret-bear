@@ -12,8 +12,9 @@
 #include <scheduler.h>
 #include <addrspace.h>
 #include <vnode.h>
-#include "opt-synchprobs.h"
 
+#include "opt-synchprobs.h"
+#include "opt-A1.h"
 /* States a thread can be in. */
 typedef enum {
 	S_RUN,
@@ -572,6 +573,39 @@ thread_wakeup(const void *addr)
 		}
 	}
 }
+
+#if OPT_A1
+/*
+ *Wake up a single thread that is sleeping on a "sleep address" 
+ */
+
+void
+thread_wakeup_one(const void *addr)
+{
+	int i, result;
+	
+	// meant to be called with interrupts off
+	assert(curspl>0);
+	
+	// This is inefficient. Feel free to improve it.	
+	for (i=0; i<array_getnum(sleepers); i++) {
+		struct thread *t = array_getguy(sleepers, i);
+		if (t->t_sleepaddr == addr) {
+			// Remove from list
+			array_remove(sleepers, i);
+			/*
+			 * Because we preallocate during thread_fork,
+			 * this should never fail.
+			 */
+			result = make_runnable(t);
+			assert(result==0);
+			
+			//we found out thread to wake, return to program
+			return;
+		}
+	}
+}
+#endif
 
 /*
  * Return nonzero if there are any threads who are sleeping on "sleep address"
