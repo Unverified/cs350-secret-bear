@@ -65,6 +65,12 @@ int NumCats;   // number of cats
 int NumMice;   // number of mice
 int NumLoops;  // number of times each cat and mouse should eat
 
+volatile int NumCatsEating;
+volatile int NumMiceEating;
+volatile unsigned int Serving;
+struct lock *EatingMutex, *BowlMutex;
+struct cv *CatEating, *MouseEating, *BowlSignal;
+
 /*
  * Once the main driver function (catmouse()) has created the cat and mouse
  * simulation threads, it uses this semaphore to block until all of the
@@ -78,6 +84,31 @@ struct semaphore *CatMouseWait;
  * 
  */
 
+static
+unsigned int
+getOpenBowl(char *bowlflag)
+{
+	int i;
+	unsigned int open_bowl = 0;
+	
+	lock_acquire(BowlMutex);	
+	while(open_bowl == 0){		
+		for(i=0; i<NumBowls; i++){
+			if(bowlflag[i] == 'o'){
+				bowlflag[i] = 'f';
+				open_bowl = i + 1;
+				break; //found an open bowl leave for loop
+			}
+		}
+		
+		if(open_bowl == 0){
+			cv_wait(BowlSignal, BowlMutex);
+		}
+	}
+	lock_release(BowlMutex);
+	
+	return open_bowl;
+}
 
 /*
  * cat_simulation()
@@ -99,28 +130,24 @@ struct semaphore *CatMouseWait;
 
 static
 void
-cat_simulation(void * unusedpointer, 
+cat_simulation(void * pointer, 
 	       unsigned long catnumber)
 {
   int i;
   unsigned int bowl;
-
-  /* avoid unused variable warnings. */
-  (void) unusedpointer;
-  (void) catnumber;
-
-
+  char *bowlstate = (char*)pointer;
+  
   /* your simulated cat must iterate NumLoops times,
-   *  sleeping (by calling cat_sleep() and eating
-   *  (by calling cat_eat()) on each iteration */
+   * sleeping (by calling cat_sleep() and eating
+   * (by calling cat_eat()) on each iteration */
   for(i=0;i<NumLoops;i++) {
 
-    /* do not synchronize calls to cat_sleep().
-       Any number of cats (and mice) should be able
-       sleep at the same time. */
+	/* do not synchronize calls to cat_sleep().
+	 * Any number of cats (and mice) should be able
+	 * sleep at the same time. */
     cat_sleep();
 
-    /* for now, this cat chooses a random bowl from
+	/* for now, this cat chooses a random bowl from
      * which to eat, and it is not synchronized with
      * other cats and mice.
      *
@@ -129,10 +156,33 @@ cat_simulation(void * unusedpointer,
      * synchronization so that the cat does not violate
      * the rules when it eats */
 
-    /* legal bowl numbers range from 1 to NumBowls */
-    bowl = ((unsigned int)random() % NumBowls) + 1;
+	/* legal bowl numbers range from 1 to NumBowls */
+    lock_acquire(EatingMutex);
+	while(NumMiceEating != 0 && Serving != catnumber){
+		cv_wait(MouseEating, EatingMutex);
+	}
+			
+	NumCatsEating++;
+	Serving++;
+    lock_release(EatingMutex);
+    
+	//bowl = ((unsigned int)catnumber % NumBowls) + 1;
+	bowl = getOpenBowl(bowlstate);
     cat_eat(bowl);
 
+	lock_acquire(BowlMutex);
+	bowlstate[bowl-1] = 'o';
+	cv_signal(BowlSignal, BowlMutex);
+	lock_release(BowlMutex);
+
+	lock_acquire(EatingMutex);
+	NumCatsEating--;
+
+	if(NumCatsEating == 0){
+		Serving = 0;
+		cv_broadcast(CatEating, EatingMutex);
+	}
+    lock_release(EatingMutex);
   }
 
   /* indicate that this cat simulation is finished */
@@ -160,16 +210,12 @@ cat_simulation(void * unusedpointer,
 
 static
 void
-mouse_simulation(void * unusedpointer,
+mouse_simulation(void * pointer,
           unsigned long mousenumber)
 {
   int i;
   unsigned int bowl;
-
-  /* Avoid unused variable warnings. */
-  (void) unusedpointer;
-  (void) mousenumber;
-
+  char *bowlstate = (char*)pointer;
 
   /* your simulated mouse must iterate NumLoops times,
    *  sleeping (by calling mouse_sleep()) and eating
@@ -190,10 +236,31 @@ mouse_simulation(void * unusedpointer,
      * synchronization so that the mouse does not violate
      * the rules when it eats */
 
-    /* legal bowl numbers range from 1 to NumBowls */
-    bowl = ((unsigned int)random() % NumBowls) + 1;
-    mouse_eat(bowl);
 
+    lock_acquire(EatingMutex);
+		while(NumCatsEating != 0 && Serving != mousenumber){
+			cv_wait(CatEating, EatingMutex);
+		}
+		
+		Serving++;
+		NumMiceEating++;
+    lock_release(EatingMutex);
+    
+    bowl = getOpenBowl(bowlstate);
+    mouse_eat(bowl);
+    
+    lock_acquire(BowlMutex);
+	bowlstate[bowl-1] = 'o';
+	cv_signal(BowlSignal, BowlMutex);
+	lock_release(BowlMutex);
+
+    lock_acquire(EatingMutex);
+	NumMiceEating--;
+	if(NumMiceEating == 0){
+		Serving = 0;
+		cv_broadcast(MouseEating, EatingMutex);
+	}
+    lock_release(EatingMutex);
   }
 
   /* indicate that this mouse is finished */
@@ -278,11 +345,43 @@ catmouse(int nargs,
     panic("catmouse: error initializing bowls.\n");
   }
 
+  EatingMutex = lock_create("EatingMutex");
+  if(EatingMutex == NULL){
+    panic("catmouse:error creating eating mutex");
+  }
+  
+  CatEating = cv_create("CatEating");
+  if(CatEating == NULL){
+    panic("catmouse:error creating cat tracker");
+  }
+  
+  MouseEating = cv_create("MouseEating");
+  if(MouseEating == NULL){
+    panic("catmouse:error creating mouse tracker");  
+  }
+
+  BowlMutex = lock_create("BowlMutex");
+  if(BowlMutex == NULL){
+    panic("catmouse:error creating bowl mutex");
+  }
+
+  Serving = 0;
+
+  char BowlState[NumBowls];
+  for(i=0;i<NumBowls;i++){
+	  BowlState[i] = 'o';
+  }
+
+  BowlSignal = cv_create("BowlSignal");
+  if(BowlSignal == NULL){
+	  panic("catmouse:error creating bowlsignal");
+  }
+
   /*
    * Start NumCats cat_simulation() threads.
    */
   for (index = 0; index < NumCats; index++) {
-    error = thread_fork("cat_simulation thread",NULL,index,cat_simulation,NULL);
+    error = thread_fork("cat_simulation thread",BowlState,index,cat_simulation,NULL);
     if (error) {
       panic("cat_simulation: thread_fork failed: %s\n", strerror(error));
     }
@@ -292,7 +391,7 @@ catmouse(int nargs,
    * Start NumMice mouse_simulation() threads.
    */
   for (index = 0; index < NumMice; index++) {
-    error = thread_fork("mouse_simulation thread",NULL,index,mouse_simulation,NULL);
+    error = thread_fork("mouse_simulation thread",BowlState,index,mouse_simulation,NULL);
     if (error) {
       panic("mouse_simulation: thread_fork failed: %s\n",strerror(error));
     }
@@ -306,7 +405,11 @@ catmouse(int nargs,
 
   /* clean up the semaphore that we created */
   sem_destroy(CatMouseWait);
-
+  lock_destroy(EatingMutex);
+  lock_destroy(BowlMutex);
+  cv_destroy(CatEating);
+  cv_destroy(MouseEating);
+  cv_destroy(BowlSignal);
   /* clean up resources used for tracking bowl use */
   cleanup_bowls();
 
