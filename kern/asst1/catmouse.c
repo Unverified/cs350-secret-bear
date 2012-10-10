@@ -67,7 +67,7 @@ int NumLoops;  // number of times each cat and mouse should eat
 
 volatile int NumCatsEating;
 volatile int NumMiceEating;
-volatile unsigned int Serving;
+unsigned long Serving;
 struct lock *EatingMutex, *BowlMutex;
 struct cv *CatEating, *MouseEating, *BowlSignal;
 
@@ -158,15 +158,17 @@ cat_simulation(void * pointer,
 
 	/* legal bowl numbers range from 1 to NumBowls */
     lock_acquire(EatingMutex);
-	while(NumMiceEating != 0 && Serving != catnumber){
+	while(NumMiceEating > 0 || Serving != catnumber){
 		cv_wait(MouseEating, EatingMutex);
 	}
+	assert(NumMiceEating == 0);
+	assert(Serving == catnumber);
 			
 	NumCatsEating++;
 	Serving++;
+	cv_broadcast(MouseEating, EatingMutex);
     lock_release(EatingMutex);
     
-	//bowl = ((unsigned int)catnumber % NumBowls) + 1;
 	bowl = getOpenBowl(bowlstate);
     cat_eat(bowl);
 
@@ -238,12 +240,15 @@ mouse_simulation(void * pointer,
 
 
     lock_acquire(EatingMutex);
-		while(NumCatsEating != 0 && Serving != mousenumber){
-			cv_wait(CatEating, EatingMutex);
-		}
+	while(NumCatsEating > 0 || Serving != mousenumber){
+		cv_wait(CatEating, EatingMutex);
+	}
+	assert(NumCatsEating == 0);
+	assert(Serving == mousenumber);
 		
-		Serving++;
-		NumMiceEating++;
+	NumMiceEating++;
+	Serving++;
+	cv_broadcast(CatEating, EatingMutex);
     lock_release(EatingMutex);
     
     bowl = getOpenBowl(bowlstate);
@@ -366,7 +371,9 @@ catmouse(int nargs,
   }
 
   Serving = 0;
-
+  NumCatsEating = 0;
+  NumMiceEating = 0;
+  
   char BowlState[NumBowls];
   for(i=0;i<NumBowls;i++){
 	  BowlState[i] = 'o';
