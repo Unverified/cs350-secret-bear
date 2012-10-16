@@ -54,7 +54,6 @@ struct lock {
 	char *name;
 
     #if OPT_A1
-        volatile char acquired;
         volatile struct thread *holder;
     #endif /* OPT_A1 */
 };

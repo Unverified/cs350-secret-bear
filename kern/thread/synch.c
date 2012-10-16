@@ -116,7 +116,6 @@ lock_create(const char *name)
 	}
 	
 	#if OPT_A1
-		lock->acquired = 0;
 		lock->holder = NULL;
 	#endif
 	
@@ -130,7 +129,7 @@ lock_destroy(struct lock *lock)
 
 	#if OPT_A1
 		int spl = splhigh();
-		assert(lock->acquired == 0);
+		assert(lock->holder == NULL);
 		splx(spl);
 	#endif
 	
@@ -143,16 +142,15 @@ lock_acquire(struct lock *lock)
 {
 	#if OPT_A1
 		assert(lock != NULL);
-		assert(!in_interrupt);
+		assert(in_interrupt == 0);
 
 		int spl = splhigh();
-		while (lock->acquired) {
+		while (lock->holder != NULL) {
 			thread_sleep(lock);
 		}
-		assert(!lock->acquired);
+		assert(lock->holder == NULL);
 
 		lock->holder = curthread;
-		lock->acquired = 1;
 		splx(spl);
 	#else
 		(void)lock;
@@ -164,14 +162,11 @@ lock_release(struct lock *lock)
 {
 	#if OPT_A1
 		assert(lock != NULL);
-		assert(lock->acquired == 1);
-		assert(lock_do_i_hold(lock));
+		assert(lock->holder != NULL);
 		
 		int spl = splhigh();
+		assert(lock_do_i_hold(lock));
 		lock->holder = NULL;
-		lock->acquired = 0;
-		
-		assert(!lock->acquired);
 		thread_wakeup(lock);
 		splx(spl);
 	#else
@@ -186,7 +181,7 @@ lock_do_i_hold(struct lock *lock)
 		assert(lock != NULL);		
 		
 		int spl = splhigh();
-		int isEqual = (curthread == lock->holder) && lock->acquired;
+		int isEqual = (curthread == lock->holder);
 		splx(spl);
 		
 		return isEqual;
