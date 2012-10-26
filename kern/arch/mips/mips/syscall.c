@@ -6,8 +6,10 @@
 #include <machine/trapframe.h>
 #include <kern/callno.h>
 #include <syscall.h>
+#include <thread.h>
+#include <curthread.h>
 
-
+#include "opt-A2.h"
 /*
  * System call handler.
  *
@@ -71,9 +73,25 @@ mips_syscall(struct trapframe *tf)
 	    case SYS_reboot:
 		err = sys_reboot(tf->tf_a0);
 		break;
+		
+		#if OPT_A2
+		
+		case SYS_write:
+		err = sys_write(tf->tf_a0, 
+						(const_userptr_t) tf->tf_a1, 
+						tf->tf_a2, 
+						&retval);
+		break;
+			
+		case SYS__exit:
+		//TODO - Now this just ends the thread when its exit is called, I believe
+		// that more has to be done here
+		thread_exit();
+		err = 0;
+		break;	    
+	    
+	    #endif /* OPT_A2 */
 
-	    /* Add stuff here */
- 
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
