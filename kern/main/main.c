@@ -68,7 +68,7 @@ boot(void)
 	kprintf("%s", harvard_copyright);
 	kprintf("\n");
 
-	kprintf("Put-your-group-name-here's system version %s (%s #%d)\n", 
+	kprintf("CS350_037 system version %s (%s #%d)\n", 
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
 
@@ -169,6 +169,6 @@ kmain(char *arguments)
 
 	menu(arguments);
 
-	/* Should not get here */
+	/* Should not get ``here */
 	return 0;
 }
