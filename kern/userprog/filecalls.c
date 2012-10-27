@@ -3,42 +3,44 @@
 #include <lib.h>
 #include <syscall.h>
 
-int sys_open()
+int
+sys_open()
 {
 	
 	return 0;
 }
 
-int sys_close()
+int
+sys_close()
 {
 	
 	return 0;
 }
 
-int sys_read()
+int
+sys_read()
 {
 
 	return 0;
 }
 
-int sys_write(int fd, const_userptr_t data, int len, int *retval)
+int
+sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 {
-	if(fd == 1){
-		size_t size;
-		char *kernspace = (char*) kmalloc(len * sizeof(char));
-		
-		
-		copyinstr(data, kernspace, len, &size);
-
-		//for some reason im getting extra characters on the end of output from this, why?
-		kprintf("%s", kernspace);
-		
-		kfree(kernspace);
-		*retval = 0;
-		return 0;	
-	}else{
-		kprintf("only writes to the stdout, file descriptor == 1 are supported");
-		*retval = EBADF; 
-		return 1;
+	if(fd < 0){
+		*retval = -1;
+		return EBADF;
 	}
+	
+	size_t size;
+	char *kernspace = (char*) kmalloc(len);
+		
+	copyinstr(data, kernspace, len, &size);
+
+	//for some reason im getting extra characters on the end of output when I used strings why?
+	kprintf("%c", *kernspace);
+		
+	kfree(kernspace);
+	*retval = 0;
+	return 0;	
 }

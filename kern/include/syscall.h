@@ -29,7 +29,7 @@ int sys_read();
 /* SYS_write system call
  * code resides in /kern/userspace/filecalls.c
  */
-int sys_write(int fd, const_userptr_t data, int len, int *retval);
+int sys_write(int fd, const_userptr_t data, size_t len, int *retval);
 
 #endif /* OPT_A2 */
 #endif /* _SYSCALL_H_ */
