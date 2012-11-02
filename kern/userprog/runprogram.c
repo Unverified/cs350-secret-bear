@@ -22,7 +22,7 @@
  * Calls vfs_open on progname and thus may destroy it.
  */
 int
-runprogram(char *progname)
+runprogram(char *progname, int nargs, char **args)
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
@@ -65,9 +65,61 @@ runprogram(char *progname)
 		return result;
 	}
 
+	#if OPT_A2
+
+	vaddr_t addrOfCharPtrs[nargs+1];
+
+	/* First put all the strings args on the users stack  while 
+	keeping track of the starting chars user stack address*/
+	int i;
+	for(i = nargs - 1; i >= 0; i--) {
+		size_t str_len = 1;
+		char *str = args[i];
+		int j = 0;
+		while(str[j] != '\0') {
+			str_len++;
+			j++;
+		}
+		
+		size_t actual;
+		stackptr -= str_len;
+		addrOfCharPtrs[i] = stackptr;
+		copyoutstr(args[i], (userptr_t) stackptr, str_len, &actual);
+		
+	}
+
+	/* We are about to put all the *char on the stack so make sure out address
+	is divisible by 4 */
+	stackptr -= stackptr % 4;
+
+	/* put the NULL *char on the stack */
+	stackptr -= 4;
+	addrOfCharPtrs[nargs] = stackptr;
+	copyout(NULL, (userptr_t) stackptr, 4);
+
+	/* put all the *char on the user stack */
+        for(i = nargs; i >= 0; i--) {
+		stackptr -= 4;
+		copyout(&addrOfCharPtrs[i], (userptr_t) stackptr, 4);
+        }
+
+	/* this is the new **argv address, put that on the user stack */
+	vaddr_t newArgsPtr = stackptr;
+	stackptr -= 4;
+	copyout(&newArgsPtr, (userptr_t) stackptr, 4);
+
+	/* make sure the new user stackptr is diisible by 8 */
+	stackptr -= (stackptr % 8);
+
 	/* Warp to user mode. */
-	md_usermode(0 /*argc*/, NULL /*userspace addr of argv*/,
+	md_usermode(nargs,(userptr_t) newArgsPtr,
 		    stackptr, entrypoint);
+
+	#else
+	/* Warp to user mode. */
+	md_usermode(0,NULL,
+		    stackptr, entrypoint);
+	#endif /* OPT_A2 */
 	
 	/* md_usermode does not return */
 	panic("md_usermode returned\n");
