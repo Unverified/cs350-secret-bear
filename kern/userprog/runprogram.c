@@ -85,8 +85,7 @@ runprogram(char *progname, int nargs, char **args)
 		size_t actual;
 		stackptr -= str_len;
 		addrOfCharPtrs[i] = stackptr;
-		copyoutstr(args[i], (userptr_t) stackptr, str_len, &actual);
-		
+		copyoutstr(args[i], (userptr_t) stackptr, str_len, &actual);		
 	}
 
 	/* We are about to put all the *char on the stack so make sure out address
@@ -99,10 +98,10 @@ runprogram(char *progname, int nargs, char **args)
 	copyout(NULL, (userptr_t) stackptr, 4);
 
 	/* put all the *char on the user stack */
-        for(i = nargs; i >= 0; i--) {
+    for(i = nargs; i >= 0; i--) {
 		stackptr -= 4;
 		copyout(&addrOfCharPtrs[i], (userptr_t) stackptr, 4);
-        }
+    }
 
 	/* this is the new **argv address, put that on the user stack */
 	vaddr_t newArgsPtr = stackptr;

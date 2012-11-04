@@ -71,31 +71,53 @@ mips_syscall(struct trapframe *tf)
 
 	switch (callno) {
 	    case SYS_reboot:
-		err = sys_reboot(tf->tf_a0);
-		break;
+			err = sys_reboot(tf->tf_a0);
+			break;
 		
 		#if OPT_A2
+		case SYS__exit:
+			err = sys__exit(&retval);
+			break;
+		
+		case SYS_execv:
+			break;
+		
+		case SYS_fork:
+			err = sys_fork(&retval);
+			break;
+		
+		case SYS_waitpid:
+			err = sys_waitpid(&retval);
+			break;
+			
+		case SYS_open:
+			err = sys_open(&retval);
+			break;
+		
+		case SYS_read:
+			err = sys_read(&retval);
+			break;
 		
 		case SYS_write:
-		err = sys_write(tf->tf_a0, 
-						(const_userptr_t) tf->tf_a1, 
-						tf->tf_a2, 
-						&retval);
-		break;
+			err = sys_write(tf->tf_a0, 
+							(const_userptr_t) tf->tf_a1, 
+							tf->tf_a2, 
+							&retval);
+			break;
+		
+		case SYS_close:
+			err = sys_close(&retval);
+			break;
 			
-		case SYS__exit:
-		//TODO - Now this just ends the thread when its exit is called, I believe
-		// that more has to be done here
-		thread_exit();
-		err = 0;
-		break;	    
-	    
+		case SYS_getpid:
+			err = sys_getpid(&retval);
+			break;
 	    #endif /* OPT_A2 */
 
 	    default:
-		kprintf("Unknown syscall %d\n", callno);
-		err = ENOSYS;
-		break;
+			kprintf("Unknown syscall %d\n", callno);
+			err = ENOSYS;
+			break;
 	}
 
 

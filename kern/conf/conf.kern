@@ -458,6 +458,7 @@ defoption A0
 defoption A1
 defoption A2
    file    userprog/filecalls.c
+   file    userprog/progcalls.c
 # UW For A3 use the stats tracking code provided
 defoption A3
    file    vm/uw-vmstats.c

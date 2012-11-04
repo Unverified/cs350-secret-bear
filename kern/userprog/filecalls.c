@@ -4,22 +4,25 @@
 #include <syscall.h>
 
 int
-sys_open()
+sys_open(int *retval)
 {
+	kprintf("open called!");
 	
 	return 0;
 }
 
 int
-sys_close()
+sys_close(int *retval)
 {
+	kprintf("close called!");
 	
 	return 0;
 }
 
 int
-sys_read()
+sys_read(int *retval)
 {
+	kprintf("read called!");
 
 	return 0;
 }
