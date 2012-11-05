@@ -108,13 +108,11 @@ runprogram(char *progname, int nargs, char **args)
 	stackptr -= 4;
 	copyout(&newArgsPtr, (userptr_t) stackptr, 4);
 
-	/* make sure the new user stackptr is diisible by 8 */
+	/* make sure the new user stackptr is divisible by 8 */
 	stackptr -= (stackptr % 8);
 
-	/* Warp to user mode.
-	 * First arg is program name which is already implied actual passed args are
-	 * exactly 1 less */
-	md_usermode(nargs - 1,(userptr_t) newArgsPtr,
+	/* Warp to user mode. */
+	md_usermode(nargs,(userptr_t) newArgsPtr,
 		    stackptr, entrypoint);
 
 	#else

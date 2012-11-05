@@ -55,9 +55,9 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 	
 	copyinstr(data, kernspace, len, &size);
 	//for some reason im getting extra characters on the end of output when I used strings why?
-	kprintf("%s", kernspace);
+	kprintf("%c", *kernspace);
 		
 	kfree(kernspace);
-	*retval = size;
+	*retval = 0;
 	return 0;	
 }
