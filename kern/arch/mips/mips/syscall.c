@@ -97,7 +97,7 @@ mips_syscall(struct trapframe *tf)
 		case SYS_read:
 			err = sys_read(&retval);
 			break;
-		
+	
 		case SYS_write:
 			err = sys_write(tf->tf_a0, 
 							(const_userptr_t) tf->tf_a1, 

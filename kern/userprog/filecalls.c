@@ -1,7 +1,19 @@
+/*
+filecalls.c
+
+Implementation of all file related system calls:
+	- open
+	- close
+	- read
+	- write
+
+*/
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
 #include <syscall.h>
+#include <filecalls.h>
 
 int
 sys_open(int *retval)

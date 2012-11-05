@@ -7,7 +7,9 @@
 
 /* Get machine-dependent stuff */
 #include <machine/pcb.h>
+#include <filecalls.h>
 #include "opt-A1.h"
+#include "opt-A2.h"
 
 struct addrspace;
 
@@ -37,6 +39,18 @@ struct thread {
 	 * and is manipulated by the virtual filesystem (VFS) code.
 	 */
 	struct vnode *t_cwd;
+
+	#if OPT_A2
+
+	/*
+	File Descriptor Table
+	Array of file descriptors (See kern/include/filecalls.h)
+	MAX_FD defined in kern/include/filecalls.h
+	*/
+	struct fd (*fdt)[MAX_FD];	
+	int fdcounter;	// tracks current number of fd's
+
+	#endif 
 };
 
 /* Call once during startup to allocate data structures. */

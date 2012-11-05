@@ -15,6 +15,7 @@
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
+#include "opt-A2.h"
 /* States a thread can be in. */
 typedef enum {
 	S_RUN,
@@ -62,7 +63,7 @@ thread_create(const char *name)
 	
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
-	
+
 	return thread;
 }
 
