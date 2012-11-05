@@ -22,6 +22,7 @@ sys__exit(int *retval)
 	// that more has to be done here
 	thread_exit();
 	
+	(void) retval;
 	return 0;
 }
 
@@ -30,6 +31,7 @@ sys_fork(int *retval)
 {
 	kprintf("fork called!\n");
 	
+	(void) retval;
 	return 0;
 }
 
@@ -38,13 +40,15 @@ sys_getpid(int *retval)
 {
 	kprintf("getpid called!\n");
 	
+	(void) retval;
 	return 0;
 }
 
 int
-sys_waitpid(int retval)
+sys_waitpid(int *retval)
 {
 	kprintf("waitpid called\n");
 	
+	(void) retval;
 	return 0;
 }

@@ -20,6 +20,7 @@ sys_open(int *retval)
 {
 	kprintf("open called!");
 	
+	(void) retval;
 	return 0;
 }
 
@@ -28,6 +29,7 @@ sys_close(int *retval)
 {
 	kprintf("close called!");
 	
+	(void) retval;
 	return 0;
 }
 
@@ -36,6 +38,7 @@ sys_read(int *retval)
 {
 	kprintf("read called!");
 
+	(void) retval;
 	return 0;
 }
 
@@ -49,13 +52,12 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 	
 	size_t size;
 	char *kernspace = (char*) kmalloc(len);
-		
+	
 	copyinstr(data, kernspace, len, &size);
-
 	//for some reason im getting extra characters on the end of output when I used strings why?
-	kprintf("%s", *kernspace);
+	kprintf("%s", kernspace);
 		
 	kfree(kernspace);
-	*retval = 0;
+	*retval = size;
 	return 0;	
 }
