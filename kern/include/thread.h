@@ -50,6 +50,11 @@ struct thread {
 	struct fd (*fdt)[MAX_FD];	
 	int fdcounter;	// tracks current number of fd's
 
+
+	/* Process ID
+	 * Since OS161 is 1 thread per process, no need to create an extra object
+	 * the thread can hold the process info aswell */
+	pid_t t_pid;
 	#endif 
 };
 

@@ -38,9 +38,8 @@ sys_fork(int *retval)
 int
 sys_getpid(int *retval)
 {
-	kprintf("getpid called!\n");
-	
-	(void) retval;
+	*retval = curthread->t_pid;
+	kprintf("getpid called, pid is %d\n", *retval);
 	return 0;
 }
 
