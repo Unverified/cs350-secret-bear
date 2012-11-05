@@ -1,3 +1,13 @@
+/*
+progcalls.c
+
+Implementation of all process related system calls:
+	- _exit
+	- fork
+	- getpid
+	- waitpid
+*/
+
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
