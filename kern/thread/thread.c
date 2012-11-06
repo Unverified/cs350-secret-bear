@@ -66,8 +66,8 @@ thread_create(const char *name)
 	#if OPT_A2
 	//pid assignment will be called though this structure
 	thread->t_pid = pid_getnext(thread);
-	if(thread->t_pid == 0){
-		//too many running processes, no more valid pids
+	if(thread->t_pid == 0){ //check to make sure pid is valid
+		kfree(thread);
 		return NULL;
 	}
 	#endif /* OPT_A2 */
