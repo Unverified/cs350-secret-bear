@@ -1,6 +1,7 @@
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
 #include "opt-A2.h"
+#include <machine/trapframe.h>
 /*
  * Prototypes for IN-KERNEL entry points for system call implementations.
  */
@@ -16,7 +17,7 @@ int sys__exit(int *retval);
 /* SYS_fork system call
  * code resides in /kern/userprog/progcalls.c
  */
-int sys_fork(int *retval); 
+int sys_fork(struct trapframe *tf, int *retval); 
 
 /* SYS_waitpid system call
  * code resides in /kern/userprog/progcalls.c
