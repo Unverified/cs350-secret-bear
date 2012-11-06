@@ -12,6 +12,7 @@
 #include <scheduler.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <pid.h>
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
@@ -63,6 +64,10 @@ thread_create(const char *name)
 	
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
+	#if OPT_A2
+	thread->t_pid = pid_getnext(thread);	
+	#endif /* OPT_A2 */
+	
 
 	return thread;
 }
@@ -89,6 +94,10 @@ thread_destroy(struct thread *thread)
 	if (thread->t_stack) {
 		kfree(thread->t_stack);
 	}
+
+	#if OPT_A2
+	pid_clear(thread->t_pid);
+	#endif /* OPT_A2 */
 
 	kfree(thread->t_name);
 	kfree(thread);
@@ -219,6 +228,11 @@ thread_bootstrap(void)
 	if (zombies==NULL) {
 		panic("Cannot create zombies array\n");
 	}
+	
+	#if OPT_A2
+	//setup the table for tracking process ID information
+	pid_setuptable();
+	#endif /* OPT_A2 */
 	
 	/*
 	 * Create the thread structure for the first thread
