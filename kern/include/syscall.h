@@ -15,7 +15,7 @@ int sys_reboot(int code);
 int sys__exit(int *retval); 
 
 /* SYS_fork system call
- * code resides in /kern/userprog/progcalls.c
+ * code resides in /kern/thread/thread.c
  */
 int sys_fork(struct trapframe *tf, int *retval); 
 

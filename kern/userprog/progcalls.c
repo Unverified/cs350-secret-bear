@@ -27,14 +27,6 @@ sys__exit(int *retval)
 }
 
 int
-sys_fork(struct trapframe *tf, int *retval)
-{
-	int result = thread_sys_fork(tf, retval);	
-
-	return result;
-}
-
-int
 sys_getpid(int *retval)
 {
 	*retval = curthread->t_pid;

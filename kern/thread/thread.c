@@ -13,6 +13,7 @@
 #include <scheduler.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <syscall.h>
 #include <pid.h>
 
 #include "opt-synchprobs.h"
@@ -60,13 +61,15 @@ thread_create(const char *name)
 	thread->t_stack = NULL;
 	
 	thread->t_vmspace = NULL;
-
 	thread->t_cwd = NULL;
 	
-
 	#if OPT_A2
 	//pid assignment will be called though this structure
-	thread->t_pid = pid_getnext(thread);	
+	thread->t_pid = pid_getnext(thread);
+	if(thread->t_pid == 0){
+		//too many running processes, no more valid pids
+		return NULL;
+	}
 	#endif /* OPT_A2 */
 
 	return thread;
@@ -381,9 +384,11 @@ thread_fork(const char *name,
 	return result;
 }
 
-//easyer to do all the work in thread.c
+//easier to do all the work in thread.c
+#if OPT_A2
 int
-thread_sys_fork(struct trapframe *tf, int *retval) {
+sys_fork(struct trapframe *tf, int *retval)
+{
 	struct thread *newguy;
 	int s, result;
 
@@ -417,7 +422,7 @@ thread_sys_fork(struct trapframe *tf, int *retval) {
 	}
 
 	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
-	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, md_forkentry);
+	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*) md_forkentry);
 
 	result = array_preallocate(sleepers, numthreads+1);
 	if (result) {
@@ -457,6 +462,7 @@ thread_sys_fork(struct trapframe *tf, int *retval) {
 
 	return result;
 }
+#endif /* OPT_A2 */
 
 /*
  * High level, machine-independent context switch code.

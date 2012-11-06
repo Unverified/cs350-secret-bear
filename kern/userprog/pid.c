@@ -9,7 +9,6 @@
 #include <pid.h>
 
 static struct thread *pid_table[PID_MAX];
-static struct lock pid_mutex;
 
 void
 pid_setuptable()
@@ -29,18 +28,16 @@ pid_t
 pid_getnext(struct thread *master)
 {
 	assert(master != NULL);
-	
 	pid_t i = 0;
 	
 	for(i = 0; pid_table[i] != NULL || i == PID_MAX; i++){}
-	
+	 
 	if(i < PID_MAX){
 		pid_table[i] = master;
 		return i + 1;
 	}
-
 	//table is full, not sure what to do here
-	return -1;
+	return 0;
 }
 
 struct thread*

@@ -58,8 +58,6 @@ struct thread {
 	#endif 
 };
 
-int thread_sys_fork(struct trapframe *tf, int *retval);
-
 /* Call once during startup to allocate data structures. */
 struct thread *thread_bootstrap(void);
 
