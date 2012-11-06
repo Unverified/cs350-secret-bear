@@ -83,7 +83,7 @@ mips_syscall(struct trapframe *tf)
 			break;
 		
 		case SYS_fork:
-			err = sys_fork(&retval);
+			err = sys_fork(tf, &retval);
 			break;
 		
 		case SYS_waitpid:
@@ -142,7 +142,6 @@ mips_syscall(struct trapframe *tf)
 	 */
 	
 	tf->tf_epc += 4;
-
 	/* Make sure the syscall code didn't forget to lower spl */
 	assert(curspl==0);
 }
@@ -150,12 +149,8 @@ mips_syscall(struct trapframe *tf)
 void
 md_forkentry(struct trapframe *tf)
 {
-	/*
-	 * This function is provided as a reminder. You need to write
-	 * both it and the code that calls it.
-	 *
-	 * Thus, you can trash it and do things another way if you prefer.
-	 */
-
-	(void)tf;
+	tf->tf_v0 = 0;
+	tf->tf_a0 = 0;
+	tf->tf_epc += 4;
+	mips_usermode(tf); 
 }

@@ -58,6 +58,8 @@ struct thread {
 	#endif 
 };
 
+int thread_sys_fork(struct trapframe *tf, int *retval);
+
 /* Call once during startup to allocate data structures. */
 struct thread *thread_bootstrap(void);
 
@@ -158,10 +160,5 @@ void mi_threadstart(void *data1, unsigned long data2,
 
 /* Machine dependent context switch. */
 void md_switch(struct pcb *old, struct pcb *nu);
-
-#if OPT_A2
-void pid_setuptable();
-#endif /* OPT_A2 */
-
 
 #endif /* _THREAD_H_ */

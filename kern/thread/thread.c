@@ -7,6 +7,7 @@
 #include <array.h>
 #include <machine/spl.h>
 #include <machine/pcb.h>
+#include <machine/trapframe.h>
 #include <thread.h>
 #include <curthread.h>
 #include <scheduler.h>
@@ -62,12 +63,11 @@ thread_create(const char *name)
 
 	thread->t_cwd = NULL;
 	
-	// If you add things to the thread structure, be sure to initialize
-	// them here.
+
 	#if OPT_A2
+	//pid assignment will be called though this structure
 	thread->t_pid = pid_getnext(thread);	
 	#endif /* OPT_A2 */
-	
 
 	return thread;
 }
@@ -366,6 +366,83 @@ thread_fork(const char *name,
 	if (ret != NULL) {
 		*ret = newguy;
 	}
+
+	return 0;
+
+ fail:
+	splx(s);
+	if (newguy->t_cwd != NULL) {
+		VOP_DECREF(newguy->t_cwd);
+	}
+	kfree(newguy->t_stack);
+	kfree(newguy->t_name);
+	kfree(newguy);
+
+	return result;
+}
+
+//easyer to do all the work in thread.c
+int
+thread_sys_fork(struct trapframe *tf, int *retval) {
+	struct thread *newguy;
+	int s, result;
+
+	newguy = thread_create(curthread->t_name);
+	if (newguy==NULL) {
+		return ENOMEM;
+	}
+
+	newguy->t_stack = kmalloc(STACK_SIZE);
+	if (newguy->t_stack==NULL) {
+		kfree(newguy->t_name);
+		kfree(newguy);
+		return ENOMEM;
+	}
+
+	newguy->t_stack[0] = 0xae;
+	newguy->t_stack[1] = 0x11;
+	newguy->t_stack[2] = 0xda;
+	newguy->t_stack[3] = 0x33;
+
+	if (curthread->t_cwd != NULL) {
+		VOP_INCREF(curthread->t_cwd);
+		newguy->t_cwd = curthread->t_cwd;
+	}
+
+	s = splhigh();
+
+	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
+	if(result) {
+		goto fail;
+	}
+
+	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
+	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, md_forkentry);
+
+	result = array_preallocate(sleepers, numthreads+1);
+	if (result) {
+		goto fail;
+	}
+	result = array_preallocate(zombies, numthreads+1);
+	if (result) {
+		goto fail;
+	}
+
+	result = scheduler_preallocate(numthreads+1);
+	if (result) {
+		goto fail;
+	}
+
+	result = make_runnable(newguy);
+	if (result != 0) {
+		goto fail;
+	}
+
+	numthreads++;
+
+	splx(s);
+
+	*retval = newguy->t_pid;	
 
 	return 0;
 

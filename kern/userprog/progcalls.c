@@ -27,27 +27,23 @@ sys__exit(int *retval)
 }
 
 int
-sys_fork(int *retval)
+sys_fork(struct trapframe *tf, int *retval)
 {
-	kprintf("fork called!\n");
-	
-	(void) retval;
-	return 0;
+	int result = thread_sys_fork(tf, retval);	
+
+	return result;
 }
 
 int
 sys_getpid(int *retval)
 {
 	*retval = curthread->t_pid;
-	kprintf("getpid called, pid is %d\n", *retval);
 	return 0;
 }
 
 int
 sys_waitpid(int *retval)
 {
-	kprintf("waitpid called\n");
-	
 	(void) retval;
 	return 0;
 }
