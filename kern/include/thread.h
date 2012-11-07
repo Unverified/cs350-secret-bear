@@ -45,11 +45,9 @@ struct thread {
 
 	/*
 	File Descriptor Table
-	Array of file descriptors (See kern/include/filecalls.h)
-	MAX_FD defined in kern/include/filecalls.h
+	See kern/include/filecalls.h
 	*/
-	struct fd (*fdt)[MAX_FD];	
-	int fdcounter;	// tracks current number of fd's
+	struct fdt * fdt;
 
 
 	/* Process ID
