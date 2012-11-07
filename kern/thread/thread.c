@@ -103,7 +103,6 @@ thread_destroy(struct thread *thread)
 	}
 
 	#if OPT_A2
-	pid_clear(thread->t_pid);
 	cv_destroy(thread->t_cvwaitpid);
 	#endif /* OPT_A2 */
 
@@ -280,6 +279,10 @@ thread_shutdown(void)
 	sleepers = NULL;
 	array_destroy(zombies);
 	zombies = NULL;
+	
+	//this is the only place this should be called
+	pid_destroy();
+	
 	// Don't do this - it frees our stack and we blow up
 	//thread_destroy(curthread);
 }
@@ -584,6 +587,10 @@ thread_exit(void)
 		assert(curthread->t_stack[2] == (char)0xda);
 		assert(curthread->t_stack[3] == (char)0x33);
 	}
+
+	#if OPT_A2
+	pid_clear(curthread->t_pid);
+	#endif /* OPT_A2 */
 
 	splhigh();
 

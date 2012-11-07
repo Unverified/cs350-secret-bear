@@ -5,9 +5,11 @@
 #include <machine/spl.h>
 #include <machine/pcb.h>
 #include <thread.h>
+#include <curthread.h>
 #include <synch.h>
 #include <pid.h>
 
+static struct lock *pid_mutex;
 static struct thread *pid_table[PID_MAX];
 static int exitcodes[PID_MAX];
 
@@ -20,34 +22,75 @@ pid_setuptable()
 		panic("unable to allocate pid table");
 	}
 	 
+	pid_mutex = lock_create("pid_mutex");
+	if(pid_mutex == NULL){
+		panic("unable to create pid lock");
+	}
+	
 	for (i = 0; i < PID_MAX; i++){
 		pid_table[i] = NULL;
 		exitcodes[i] = -1;
 	}
 }
 
+void
+pid_destroy()
+{
+	lock_destroy(pid_mutex);
+}
+
+pid_t
+pid_getmenu(struct thread *master)
+{
+	//threads aren't running yet, no possibility for collision
+	pid_table[0] = master;
+	
+	return 1;
+}
+
+pid_t
+pid_getnextprocess(struct thread *master)
+{
+	int i, retval = 0;
+	int search = random() % PID_MAX;
+	
+	lock_acquire(pid_mutex);
+	for(i = 1; pid_table[search] != NULL && i < PID_MAX; i++){
+		search++;
+		if(search == PID_MAX){
+			search = 1;
+		}
+	}
+	 
+	if(i < PID_MAX){
+		pid_table[search] = master;
+		exitcodes[search] = -1;
+		retval = search + 1;
+	}
+	lock_release(pid_mutex);
+	
+	return retval;
+}
+
 pid_t
 pid_getnext(struct thread *master)
 {
 	assert(master != NULL);
-	pid_t i = 0;
 	
-	for(i = 0; pid_table[i] != NULL || i == PID_MAX; i++){}
-	 
-	if(i < PID_MAX){
-		pid_table[i] = master;
-		exitcodes[i] = -1;
-		return i + 1;
+	if (curthread == NULL){
+		return pid_getmenu(master);
 	}
-	//table is full, not sure what to do here
-	return 0;
+	return pid_getnextprocess(master);
 }
 
 struct thread*
 pid_getthread(pid_t pid)
 {
 	struct thread *retval;
+	
+	lock_acquire(pid_mutex);
 	retval = pid_table[pid - 1];
+	lock_release(pid_mutex);
 	
 	return retval;
 }
@@ -84,5 +127,7 @@ pid_clear(pid_t pid)
 	assert(pid > 0);
 	assert(pid <= PID_MAX);
 	
+	lock_acquire(pid_mutex);
 	pid_table[pid - 1] = NULL;
+	lock_release(pid_mutex);
 }
