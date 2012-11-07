@@ -13,7 +13,8 @@
 #include <scheduler.h>
 #include <addrspace.h>
 #include <vnode.h>
-#include <synch.h>
+#include <syscall.h>
+#include <pid.h>
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
@@ -38,10 +39,6 @@ static struct array *zombies;
 /* Total number of outstanding threads. Does not count zombies[]. */
 static int numthreads;
 
-//TODO: remove this once proper pid stuff is implemented
-static int tmppid;
-
-
 /*
  * Create a thread. This is used both to create the first thread's 
  * thread structure and to create subsequent threads.
@@ -64,12 +61,16 @@ thread_create(const char *name)
 	thread->t_stack = NULL;
 	
 	thread->t_vmspace = NULL;
-
 	thread->t_cwd = NULL;
 	
-	//TODO: implement proper pid assignment
-	tmppid++;
-	thread->t_pid = tmppid;
+	#if OPT_A2
+	//pid assignment will be called though this structure
+	thread->t_pid = pid_getnext(thread);
+	if(thread->t_pid == 0){ //check to make sure pid is valid
+		kfree(thread);
+		return NULL;
+	}
+	#endif /* OPT_A2 */
 
 	return thread;
 }
@@ -96,6 +97,10 @@ thread_destroy(struct thread *thread)
 	if (thread->t_stack) {
 		kfree(thread->t_stack);
 	}
+
+	#if OPT_A2
+	pid_clear(thread->t_pid);
+	#endif /* OPT_A2 */
 
 	kfree(thread->t_name);
 	kfree(thread);
@@ -227,6 +232,11 @@ thread_bootstrap(void)
 		panic("Cannot create zombies array\n");
 	}
 	
+	#if OPT_A2
+	//setup the table for tracking process ID information
+	pid_setuptable();
+	#endif /* OPT_A2 */
+	
 	/*
 	 * Create the thread structure for the first thread
 	 * (the one that's already running)
@@ -249,9 +259,6 @@ thread_bootstrap(void)
 
 	/* Number of threads starts at 1 */
 	numthreads = 1;
-
-	//TODO: remove
-	tmppid = 0;
 
 	/* Done */
 	return me;
@@ -377,9 +384,11 @@ thread_fork(const char *name,
 	return result;
 }
 
-//easyer to do all the work in thread.c
+//easier to do all the work in thread.c
+#if OPT_A2
 int
-thread_sys_fork(struct trapframe *tf, int *retval) {
+sys_fork(struct trapframe *tf, int *retval)
+{
 	struct thread *newguy;
 	int s, result;
 
@@ -453,6 +462,7 @@ thread_sys_fork(struct trapframe *tf, int *retval) {
 
 	return result;
 }
+#endif /* OPT_A2 */
 
 /*
  * High level, machine-independent context switch code.
