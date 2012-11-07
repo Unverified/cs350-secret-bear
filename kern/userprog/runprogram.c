@@ -88,8 +88,10 @@ runprogram(char *progname, int nargs, char **args)
 		copyoutstr(args[i], (userptr_t) stackptr, str_len, &actual);		
 	}
 
+	kprintf("this is different\n");
+
 	/* put the NULL *char on the stack */
-	int null_len = 4 - stackptr % 4;
+	int null_len = 4 + stackptr % 4;
 	stackptr -= null_len;
 	copyout(NULL, (userptr_t) stackptr, null_len);
 
@@ -110,7 +112,6 @@ runprogram(char *progname, int nargs, char **args)
 	/* Warp to user mode. */
 	md_usermode(nargs,(userptr_t) newArgsPtr,
 		    stackptr, entrypoint);
-
 	#else
 	/* Warp to user mode. */
 	md_usermode(0,NULL,

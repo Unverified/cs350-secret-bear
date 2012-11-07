@@ -69,7 +69,6 @@ mips_syscall(struct trapframe *tf)
 	 */
 
 	retval = 0;
-
 	switch (callno) {
 	    case SYS_reboot:
 			err = sys_reboot(tf->tf_a0);
@@ -77,7 +76,7 @@ mips_syscall(struct trapframe *tf)
 		
 		#if OPT_A2
 		case SYS__exit:
-			err = sys__exit(&retval);
+			err = sys__exit(tf->tf_a0);
 			break;
 		
 		case SYS_execv:
@@ -89,7 +88,7 @@ mips_syscall(struct trapframe *tf)
 			break;
 		
 		case SYS_waitpid:
-			err = sys_waitpid(&retval);
+			err = sys_waitpid((pid_t) tf->tf_a0, (userptr_t) tf->tf_a1, tf->tf_a2, &retval);
 			break;
 			
 		case SYS_open:

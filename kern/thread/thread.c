@@ -15,6 +15,7 @@
 #include <vnode.h>
 #include <syscall.h>
 #include <pid.h>
+#include <synch.h>
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
@@ -70,6 +71,9 @@ thread_create(const char *name)
 		kfree(thread);
 		return NULL;
 	}
+
+	thread->t_ppid = 0;
+	thread->t_cvwaitpid = cv_create(thread->t_name);
 	#endif /* OPT_A2 */
 
 	return thread;
@@ -100,6 +104,7 @@ thread_destroy(struct thread *thread)
 
 	#if OPT_A2
 	pid_clear(thread->t_pid);
+	cv_destroy(thread->t_cvwaitpid);
 	#endif /* OPT_A2 */
 
 	kfree(thread->t_name);
@@ -235,6 +240,7 @@ thread_bootstrap(void)
 	#if OPT_A2
 	//setup the table for tracking process ID information
 	pid_setuptable();
+	sys_init();
 	#endif /* OPT_A2 */
 	
 	/*
@@ -396,6 +402,8 @@ sys_fork(struct trapframe *tf, int *retval)
 	if (newguy==NULL) {
 		return ENOMEM;
 	}
+
+	newguy->t_ppid = curthread->t_pid;
 
 	newguy->t_stack = kmalloc(STACK_SIZE);
 	if (newguy->t_stack==NULL) {

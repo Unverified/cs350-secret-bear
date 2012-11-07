@@ -111,7 +111,7 @@ sys_execv(char *progname, char **args)
 
 
 	/* put the NULL *char on the stack */
-	int null_len = 4 - stackptr % 4;
+	int null_len = 4 + stackptr % 4;
 	stackptr -= null_len;
 	copyout(NULL, (userptr_t) stackptr, null_len);
 

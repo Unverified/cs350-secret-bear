@@ -9,6 +9,7 @@
 #include <pid.h>
 
 static struct thread *pid_table[PID_MAX];
+static int exitcodes[PID_MAX];
 
 void
 pid_setuptable()
@@ -21,6 +22,7 @@ pid_setuptable()
 	 
 	for (i = 0; i < PID_MAX; i++){
 		pid_table[i] = NULL;
+		exitcodes[i] = -1;
 	}
 }
 
@@ -34,6 +36,7 @@ pid_getnext(struct thread *master)
 	 
 	if(i < PID_MAX){
 		pid_table[i] = master;
+		exitcodes[i] = -1;
 		return i + 1;
 	}
 	//table is full, not sure what to do here
@@ -47,6 +50,32 @@ pid_getthread(pid_t pid)
 	retval = pid_table[pid - 1];
 	
 	return retval;
+}
+
+int
+pid_getexitcode(pid_t pid)
+{
+	int retval;
+	retval = exitcodes[pid - 1];
+	
+	return retval;
+}
+
+void
+pid_setexitcode(pid_t pid, int exitcode)
+{
+	exitcodes[pid - 1] = exitcode;
+}
+
+int pid_is_child(struct thread *thread, pid_t pid2) {
+	while(thread->t_ppid != 0) {
+		if(thread->t_ppid == pid2)
+			return 1;
+
+		thread = pid_getthread(thread->t_ppid);
+	}
+
+	return 0;
 }
 
 void

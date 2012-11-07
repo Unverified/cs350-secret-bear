@@ -8,6 +8,7 @@
 /* Get machine-dependent stuff */
 #include <machine/pcb.h>
 #include <filecalls.h>
+#include <synch.h>
 #include "opt-A1.h"
 #include "opt-A2.h"
 
@@ -55,8 +56,13 @@ struct thread {
 	 * Since OS161 is 1 thread per process, no need to create an extra object
 	 * the thread can hold the process info aswell */
 	pid_t t_pid;
+	pid_t t_ppid;
+
+	struct cv *t_cvwaitpid;
 	#endif 
 };
+
+void sys_init();
 
 /* Call once during startup to allocate data structures. */
 struct thread *thread_bootstrap(void);

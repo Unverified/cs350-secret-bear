@@ -12,7 +12,7 @@ int sys_reboot(int code);
 /* SYS__exit system call
  * code resides in /kern/userprog/progcalls.c
  */
-int sys__exit(int *retval); 
+int sys__exit(int exitcode); 
 
 /* SYS_execv system call
  * code resides in /kern/userprog/execv.c
@@ -27,7 +27,7 @@ int sys_fork(struct trapframe *tf, int *retval);
 /* SYS_waitpid system call
  * code resides in /kern/userprog/progcalls.c
  */
-int sys_waitpid(int *retval);
+int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval);
 
 /* SYS_open system call
  * code resides in /kern/userprog/filecalls.c

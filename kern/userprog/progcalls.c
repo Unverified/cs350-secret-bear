@@ -14,15 +14,29 @@ Implementation of all process related system calls:
 #include <syscall.h>
 #include <thread.h>
 #include <curthread.h>
+#include <synch.h>
+#include <pid.h>
+
+//TODO: need to find a good place to destroy this guy
+struct lock *mutex;
+
+void
+sys_init() {
+	mutex = lock_create("sys_mutex");
+}
 
 int
-sys__exit(int *retval)
+sys__exit(int exitcode)
 {
-	//TODO - Now this just ends the thread when its exit is called, I believe
-	// that more has to be done here
-	thread_exit();
+	lock_acquire(mutex);
 	
-	(void) retval;
+	pid_setexitcode(curthread->t_pid, exitcode);
+	cv_broadcast(curthread->t_cvwaitpid, mutex);
+
+	lock_release(mutex);
+
+	thread_exit();
+
 	return 0;
 }
 
@@ -34,8 +48,54 @@ sys_getpid(int *retval)
 }
 
 int
-sys_waitpid(int *retval)
+sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 {
-	(void) retval;
+	lock_acquire(mutex);
+
+	if(options != 0) {
+		lock_release(mutex);
+		return EINVAL;
+	}
+
+	int exitcode = pid_getexitcode(pid);
+	if(exitcode != -1) {
+		copyout(exitcode, status, sizeof(int));
+		*retval = (int)pid;
+		lock_release(mutex);
+		return 0;
+	}
+	struct thread *thread = pid_getthread(pid);
+
+	if(thread == NULL) {
+		lock_release(mutex);
+		return EINVAL;
+	}
+	if(pid_is_child(curthread, pid)) {
+		lock_release(mutex);
+		return EINVAL;
+	}
+
+	cv_wait(thread->t_cvwaitpid, mutex);
+
+	exitcode = pid_getexitcode(pid);
+
+	copyout(&exitcode, status, sizeof(int));
+	*retval = (int)pid;
+
+	lock_release(mutex);
+
 	return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
