@@ -7,6 +7,7 @@
 #include <kern/callno.h>
 #include <syscall.h>
 #include <thread.h>
+#include <synch.h>
 #include <curthread.h>
 
 #include "opt-A2.h"
@@ -80,6 +81,7 @@ mips_syscall(struct trapframe *tf)
 			break;
 		
 		case SYS_execv:
+			err = sys_execv((char*)tf->tf_a0, (char**)tf->tf_a1);
 			break;
 		
 		case SYS_fork:
@@ -149,6 +151,8 @@ mips_syscall(struct trapframe *tf)
 void
 md_forkentry(struct trapframe *tf)
 {
+	as_activate(curthread->t_vmspace);
+
 	tf->tf_v0 = 0;
 	tf->tf_a0 = 0;
 	tf->tf_epc += 4;

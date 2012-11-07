@@ -13,6 +13,7 @@
 #include <scheduler.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <synch.h>
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
@@ -412,7 +413,7 @@ thread_sys_fork(struct trapframe *tf, int *retval) {
 	}
 
 	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
-	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, md_forkentry);
+	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*)md_forkentry);
 
 	result = array_preallocate(sleepers, numthreads+1);
 	if (result) {

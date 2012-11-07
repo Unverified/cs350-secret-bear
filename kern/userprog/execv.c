@@ -1,9 +1,3 @@
-/*
- * Sample/test code for running a user program.  You can use this for
- * reference when implementing the execv() system call. Remember though
- * that execv() needs to do more than this function does.
- */
-
 #include <types.h>
 #include <kern/unistd.h>
 #include <kern/errno.h>
@@ -16,27 +10,63 @@
 #include <test.h>
 #include "opt-A2.h"
 
-/*
- * Load program "progname" and start running it in usermode.
- * Does not return except on error.
- *
- * Calls vfs_open on progname and thus may destroy it.
- */
+/*int strlen(char *str) {
+	int strlen = 0;
+	int i;
+	for(i = 0; str[i] != '\0'; i++) {
+		strlen++;
+	}
+
+	return strlen;
+}*/
+
 int
-runprogram(char *progname, int nargs, char **args)
+sys_execv(char *progname, char **args)
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
+
+	if(progname == NULL || args == NULL) {
+		return EINVAL;
+	}
+
+	//get the number of args
+	int nargs = 0;
+	int i;
+	for(i=0;;i++) {
+		if(args[i] == NULL)
+			break;
+		nargs++;
+	}
+
+	//need to have atleast the prog name in args
+	if(nargs < 1) {
+		return EINVAL;
+	}
+	
+	//allocate space for the char ptrs on kernel
+	char **k_args = (char**)kmalloc(sizeof(char*));
+
+	//put all the args onto kernal space
+	for(i=0;i<nargs;i++) {
+		int _strlen = strlen(args[i]) + 1;
+		char *k_str = kmalloc(sizeof(char)*_strlen);
+
+		size_t actual;
+		copyinstr(args[i], k_str, _strlen, &actual);
+
+		k_args[i] = k_str;
+	}
+
+	//destroy current user address space
+	as_destroy(curthread->t_vmspace);
 
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, &v);
 	if (result) {
 		return result;
 	}
-
-	/* We should be a new thread. */
-	assert(curthread->t_vmspace == NULL);
 
 	/* Create a new address space. */
 	curthread->t_vmspace = as_create();
@@ -66,27 +96,19 @@ runprogram(char *progname, int nargs, char **args)
 		return result;
 	}
 
-	#if OPT_A2
-
-	vaddr_t addrOfCharPtrs[nargs];
+	vaddr_t addrOfCharPtrs[nargs+1];
 
 	/* First put all the strings args on the users stack  while 
 	keeping track of the starting chars user stack address*/
-	int i;
 	for(i = nargs - 1; i >= 0; i--) {
-		size_t str_len = 1;
-		char *str = args[i];
-		int j = 0;
-		while(str[j] != '\0') {
-			str_len++;
-			j++;
-		}
+		int str_len = strlen(k_args[i]) + 1;
 		
 		size_t actual;
 		stackptr -= str_len;
 		addrOfCharPtrs[i] = stackptr;
-		copyoutstr(args[i], (userptr_t) stackptr, str_len, &actual);		
+		copyoutstr(k_args[i], (userptr_t) stackptr, str_len, &actual);
 	}
+
 
 	/* put the NULL *char on the stack */
 	int null_len = 4 - stackptr % 4;
@@ -94,7 +116,7 @@ runprogram(char *progname, int nargs, char **args)
 	copyout(NULL, (userptr_t) stackptr, null_len);
 
 	/* put all the *char on the user stack */
-    	for(i = nargs-1; i >= 0; i--) {
+    	for(i = nargs; i >= 0; i--) {
 		stackptr -= 4;
 		copyout(&addrOfCharPtrs[i], (userptr_t) stackptr, 4);
     	}
@@ -107,18 +129,13 @@ runprogram(char *progname, int nargs, char **args)
 	/* make sure the new user stackptr is divisible by 8 */
 	stackptr -= (stackptr % 8);
 
+	kfree(k_args);
+
 	/* Warp to user mode. */
 	md_usermode(nargs,(userptr_t) newArgsPtr,
 		    stackptr, entrypoint);
 
-	#else
-	/* Warp to user mode. */
-	md_usermode(0,NULL,
-		    stackptr, entrypoint);
-	#endif /* OPT_A2 */
-	
 	/* md_usermode does not return */
 	panic("md_usermode returned\n");
 	return EINVAL;
 }
-

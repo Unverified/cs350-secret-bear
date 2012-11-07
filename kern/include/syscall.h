@@ -14,6 +14,11 @@ int sys_reboot(int code);
  */
 int sys__exit(int *retval); 
 
+/* SYS_execv system call
+ * code resides in /kern/userprog/execv.c
+ */
+int sys_execv(char *progname, char **args);
+
 /* SYS_fork system call
  * code resides in /kern/userprog/progcalls.c
  */
