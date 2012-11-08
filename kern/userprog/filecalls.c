@@ -88,9 +88,9 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 
 	VOP_WRITE(curthread->fdt->table[fd].vnode, &uio);	
 	
-	retval = (int)uio.uio_resid;
+	*retval = (int)uio.uio_resid;
 	
-	return retval;
+	return 0;
 }
 
 struct fdt * 
