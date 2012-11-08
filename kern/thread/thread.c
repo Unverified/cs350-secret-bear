@@ -104,7 +104,6 @@ thread_destroy(struct thread *thread)
 
 	#if OPT_A2
 	fdt_free(thread->fdt);
-	pid_clear(thread->t_pid);
 	cv_destroy(thread->t_cvwaitpid);
 	#endif /* OPT_A2 */
 
