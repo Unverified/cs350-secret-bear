@@ -9,6 +9,7 @@
 #include <thread.h>
 #include <synch.h>
 #include <curthread.h>
+#include <addrspace.h>
 
 #include "opt-A2.h"
 /*

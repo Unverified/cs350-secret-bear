@@ -424,13 +424,11 @@ sys_fork(struct trapframe *tf, int *retval)
 
 	s = splhigh();
 
+	
 	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
 	if(result) {
 		goto fail;
 	}
-
-	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
-	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*)md_forkentry);
 
 	result = array_preallocate(sleepers, numthreads+1);
 	if (result) {
@@ -451,12 +449,14 @@ sys_fork(struct trapframe *tf, int *retval)
 		goto fail;
 	}
 
+	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
+	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*)md_forkentry);
+
 	numthreads++;
 
 	splx(s);
 
 	*retval = newguy->t_pid;	
-
 	return 0;
 
  fail:
@@ -467,7 +467,6 @@ sys_fork(struct trapframe *tf, int *retval)
 	kfree(newguy->t_stack);
 	kfree(newguy->t_name);
 	kfree(newguy);
-
 	return result;
 }
 #endif /* OPT_A2 */
