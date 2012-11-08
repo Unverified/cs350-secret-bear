@@ -21,7 +21,7 @@
 }*/
 
 int
-sys_execv(char *progname, char **args)
+sys_execv(char *progname, char *args[])
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
@@ -46,7 +46,7 @@ sys_execv(char *progname, char **args)
 	}
 
 	//allocate space for the char ptrs on kernel
-	char **k_args = (char**)kmalloc(sizeof(char*));
+	char *k_args[nargs];
 
 	//put all the args onto kernal space
 	for(i=0;i<nargs;i++) {
@@ -117,10 +117,10 @@ sys_execv(char *progname, char **args)
 	copyout(NULL, (userptr_t) stackptr, null_len);
 
 	/* put all the *char on the user stack */
-    	for(i = nargs; i >= 0; i--) {
+    for(i = nargs; i >= 0; i--) {
 		stackptr -= 4;
 		copyout(&addrOfCharPtrs[i], (userptr_t) stackptr, 4);
-    	}
+    }
 
 	/* this is the new **argv address, put that on the user stack */
 	vaddr_t newArgsPtr = stackptr;
@@ -129,13 +129,15 @@ sys_execv(char *progname, char **args)
 
 	/* make sure the new user stackptr is divisible by 8 */
 	stackptr -= (stackptr % 8);
-
-	kfree(k_args);
+	
+	/* clean up the args as they are now in the proper user space */
+	for(i=0; i<nargs; i++){
+		kfree(k_args[i]);
+	}
 
 	/* Warp to user mode. */
-	md_usermode(nargs,(userptr_t) newArgsPtr,
-		    stackptr, entrypoint);
-
+	md_usermode(nargs,(userptr_t) newArgsPtr, stackptr, entrypoint);
+	
 	/* md_usermode does not return */
 	panic("md_usermode returned\n");
 	return EINVAL;

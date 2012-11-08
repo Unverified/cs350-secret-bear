@@ -22,13 +22,30 @@ Note the special entries in the table:
 
 
 #define MAX_FD 10		// maximum size of File Descriptor Table
-#define MAX_FILENAME_LEN 15	// maximum size of file name 
 
 struct fd {
-	char fileName[MAX_FILENAME_LEN];
+	char * filename;
 	struct vnode * vnode;	// See kern/include/vnode.h for more info
 	off_t offset;			// File pointer offset
 	size_t flags;			// read, write or append permissions
 };
+
+// File Descriptor table
+struct fdt {	
+	int max;
+	struct fd table[MAX_FD];
+};
+
+// Initialize fdt 
+// Sets all vnodes to NULL
+// Initializes stdin, stdout, stderr
+struct fdt * fdt_init (void);
+
+// free fdt
+void fdt_free(struct fdt * oldtable);
+
+// Add entry to File Descript Table, returns the fd number
+// Returns -1 on error
+int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags);
 
 #endif /* _FILE_CALLS_H_ */

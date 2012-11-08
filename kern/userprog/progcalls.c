@@ -59,7 +59,7 @@ sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 
 	int exitcode = pid_getexitcode(pid);
 	if(exitcode != -1) {
-		copyout(exitcode, status, sizeof(int));
+		copyout(&exitcode, status, sizeof(int));
 		*retval = (int)pid;
 		lock_release(mutex);
 		return 0;
