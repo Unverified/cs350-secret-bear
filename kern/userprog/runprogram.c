@@ -90,8 +90,6 @@ runprogram(char *progname, int nargs, char **args)
 		copyoutstr(args[i], (userptr_t) stackptr, str_len, &actual);		
 	}
 
-	kprintf("this is different\n");
-
 	/* put the NULL *char on the stack */
 	int null_len = 4 + stackptr % 4;
 	stackptr -= null_len;
