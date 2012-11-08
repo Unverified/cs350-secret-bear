@@ -58,14 +58,33 @@ sys_close(int fd, int *retval)
 }
 
 int
-sys_read(int fd, int *retval)
+sys_read(int fd, userptr_t data, size_t size, int *retval)
 {
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
-	kprintf("read called!\n");
 	
-	(void) retval;
+	struct vnode *v_read = curthread->fdt->table[fd].vnode;
+	off_t offset = curthread->fdt->table[fd].offset;
+	
+	struct uio uio;
+	char buffer[size];
+	
+	mk_kuio(&uio, buffer, size, offset, UIO_READ);
+	
+	int result = VOP_READ(v_read, &uio);
+	if(result){
+		return result;
+	}
+	
+	result = copyout(buffer, data, size);
+	if(result){
+		return result;	
+	}
+	
+	
+	curthread->fdt->table[fd].offset = uio.uio_offset;
+	*retval = size - (int)uio.uio_resid;
 	return 0;
 }
 
@@ -81,13 +100,16 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	
 	//set up a spot in kernel space to read out
 	char k_data[size]; // all chars a 1 byte so cheat the system
-	copyin(data, (void*)k_data, size);
+	int result = copyin(data, (void*)k_data, size);
+	if(result){
+		return result;
+	}
 	
 	struct uio uio;
 	mk_kuio(&uio, k_data, size, offset, UIO_WRITE);
 
 	//write to the device, record if there is an error
-	int result = VOP_WRITE(v_write, &uio);
+	result = VOP_WRITE(v_write, &uio);
 	if(result){
 		return result;
 	}

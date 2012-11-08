@@ -42,7 +42,7 @@ int sys_close(int fd, int *retval);
 /* SYS_read system call
  * code resides in /kern/userprog/filecalls.c
  */
-int sys_read(int fd, int *retval);
+int sys_read(int fd, userptr_t data, size_t len, int *retval);
 
 /* SYS_write system call
  * code resides in /kern/userprog/filecalls.c
