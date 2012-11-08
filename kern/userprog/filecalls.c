@@ -73,6 +73,10 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 int
 sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 {
+	if(fd < 0 || fd > MAX_FD){
+		return EBADF;
+	}
+	
 	struct uio uio;
 	mk_kuio(&uio, data, len, curthread->fdt->table[fd].offset, UIO_WRITE);
 
@@ -89,7 +93,6 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 	VOP_WRITE(curthread->fdt->table[fd].vnode, &uio);	
 	
 	*retval = (int)uio.uio_resid;
-	
 	return 0;
 }
 
