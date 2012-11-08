@@ -101,7 +101,8 @@ mips_syscall(struct trapframe *tf)
 			break;
 		
 		case SYS_read:
-			err = sys_read(&retval);
+			err = sys_read(tf->tf_a0,
+							&retval);
 			break;
 	
 		case SYS_write:
@@ -112,7 +113,8 @@ mips_syscall(struct trapframe *tf)
 			break;
 		
 		case SYS_close:
-			err = sys_close(&retval);
+			err = sys_close(tf->tf_a0,
+							&retval);
 			break;
 			
 		case SYS_getpid:

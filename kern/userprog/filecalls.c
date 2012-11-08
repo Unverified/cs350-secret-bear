@@ -21,29 +21,50 @@ Implementation of all file related system calls:
 #include <uio.h>
 #include <vnode.h>
 
+static
+int
+fd_check_valid(int fd)
+{
+	if(fd < 0 || fd > MAX_FD){
+		return 1;
+	}
+	
+	if(curthread->fdt->table[fd].vnode == NULL){
+		return 1;
+	}
+	
+	return 0;
+}
+
 int
 sys_open(int *retval)
 {
-	kprintf("open called!");
+	kprintf("open called!\n");
 	
 	(void) retval;
 	return 0;
 }
 
 int
-sys_close(int *retval)
+sys_close(int fd, int *retval)
 {
-	kprintf("close called!");
+	if(fd_check_valid(fd)){
+		return EBADF;
+	}
+	kprintf("close called!\n");
 	
 	(void) retval;
 	return 0;
 }
 
 int
-sys_read(int *retval)
+sys_read(int fd, int *retval)
 {
-	kprintf("read called!");
-
+	if(fd_check_valid(fd)){
+		return EBADF;
+	}
+	kprintf("read called!\n");
+	
 	(void) retval;
 	return 0;
 }
@@ -73,12 +94,15 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 int
 sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 {
-	if(fd < 0 || fd > MAX_FD){
+	if(fd_check_valid(fd)){
 		return EBADF;
 	}
 	
+	struct vnode *v_write = curthread->fdt->table[fd].vnode;
+	off_t offset = curthread->fdt->table[fd].offset;
+	
 	struct uio uio;
-	mk_kuio(&uio, data, len, curthread->fdt->table[fd].offset, UIO_WRITE);
+	mk_kuio(&uio, (void*)data, len, offset, UIO_WRITE);
 
 /*
 	uio.uio_iovec.iov_un.un_ubase = data;
@@ -90,7 +114,7 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 	uio.uio_space = NULL;
 */
 
-	VOP_WRITE(curthread->fdt->table[fd].vnode, &uio);	
+	VOP_WRITE(v_write, &uio);	
 	
 	*retval = (int)uio.uio_resid;
 	return 0;
