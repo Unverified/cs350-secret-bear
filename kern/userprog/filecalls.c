@@ -69,30 +69,8 @@ sys_read(int fd, int *retval)
 	return 0;
 }
 
-/*
 int
-sys_write(int fd, const_userptr_t data, size_t len, int *retval)
-{
-	if(fd < 0){
-		*retval = -1;
-		return EBADF;
-	}
-	
-	size_t size;
-	char *kernspace = (char*) kmalloc(len);
-	
-	copyinstr(data, kernspace, len, &size);
-	//for some reason im getting extra characters on the end of output when I used strings why?
-	kprintf("%c", *kernspace);
-		
-	kfree(kernspace);
-	*retval = 0;
-	return 0;	
-}
-*/
-
-int
-sys_write(int fd, const_userptr_t data, size_t len, int *retval)
+sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 {
 	if(fd_check_valid(fd)){
 		return EBADF;
@@ -101,26 +79,27 @@ sys_write(int fd, const_userptr_t data, size_t len, int *retval)
 	struct vnode *v_write = curthread->fdt->table[fd].vnode;
 	off_t offset = curthread->fdt->table[fd].offset;
 	
-	struct uio uio;
-	mk_kuio(&uio, (void*)data, len, offset, UIO_WRITE);
-
-/*
-	uio.uio_iovec.iov_un.un_ubase = data;
-	uio.uio_iovec.iov_len = len;
-	uio.uio_offset = curthread->fdt->table[fd].offset;
-	uio.uio_resid = len;
-	uio.uio_segflg = UIO_USERSPACE;
-	uio.uio_rw = UIO_WRITE;
-	uio.uio_space = NULL;
-*/
-
-	VOP_WRITE(v_write, &uio);	
+	//set up a spot in kernel space to read out
+	char k_data[size]; // all chars a 1 byte so cheat the system
+	copyin(data, (void*)k_data, size);
 	
+	struct uio uio;
+	mk_kuio(&uio, k_data, size, offset, UIO_WRITE);
+
+	//write to the device, record if there is an error
+	int result = VOP_WRITE(v_write, &uio);
+	if(result){
+		return result;
+	}
+	
+	//update offset and return value, success!
+	curthread->fdt->table[fd].offset = uio.uio_offset;
 	*retval = (int)uio.uio_resid;
+	
 	return 0;
 }
 
-struct fdt * 
+struct fdt* 
 fdt_init ()
 {
 	struct fdt *newtable;
