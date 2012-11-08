@@ -44,7 +44,7 @@ sys_execv(char *progname, char *args[])
 	if(nargs < 1) {
 		return EINVAL;
 	}
-	
+
 	//allocate space for the char ptrs on kernel
 	char *k_args[nargs];
 
@@ -59,14 +59,13 @@ sys_execv(char *progname, char *args[])
 		k_args[i] = k_str;
 	}
 
-	//destroy current user address space
-	as_destroy(curthread->t_vmspace);
-
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, &v);
 	if (result) {
 		return result;
 	}
+
+	struct addrspace *prev_as = curthread->t_vmspace;
 
 	/* Create a new address space. */
 	curthread->t_vmspace = as_create();
@@ -74,6 +73,8 @@ sys_execv(char *progname, char *args[])
 		vfs_close(v);
 		return ENOMEM;
 	}
+
+	as_destroy(prev_as);
 
 	/* Activate it. */
 	as_activate(curthread->t_vmspace);
