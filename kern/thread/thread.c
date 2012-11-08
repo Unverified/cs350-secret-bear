@@ -427,6 +427,9 @@ sys_fork(struct trapframe *tf, int *retval)
 		newguy->t_cwd = curthread->t_cwd;
 	}
 
+	// make newguy's fdt
+	newguy->fdt = fdt_init();
+
 	s = splhigh();
 
 	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
