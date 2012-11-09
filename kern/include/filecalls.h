@@ -21,7 +21,10 @@ Note the special entries in the table:
 #include <array.h>
 #include <kern/limits.h>
 
-struct fd {
+//cyclic deps are fun
+struct thread;
+
+struct fd{
 	char * filename;
 	struct vnode * vnode;	// See kern/include/vnode.h for more info
 	off_t offset;			// File pointer offset
@@ -39,5 +42,13 @@ struct fd {
 // Add entry to File Descript Table, returns the fd number
 // Returns -1 on error
 // int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags);
+
+struct fd * fd_init(char *name, struct vnode *node, int flag);
+
+void fd_init_inital(struct thread * t);
+
+struct fd * fd_copy(struct fd *master);
+
+void fd_destroy(struct fd *des);
 
 #endif /* _FILE_CALLS_H_ */

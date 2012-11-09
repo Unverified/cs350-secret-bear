@@ -115,7 +115,6 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	return 0;
 }
 
-
 struct fd*
 fd_init(char *name, struct vnode *node, int flag)
 {
@@ -127,6 +126,28 @@ fd_init(char *name, struct vnode *node, int flag)
 	new_fd->flags = flag;
 	
 	return new_fd;
+}
+
+void
+fd_init_inital(struct thread* t)
+{
+	// setup stdin
+	struct vnode *stin = kmalloc(sizeof(struct vnode));
+	char *stin_n = kstrdup("con:");
+	vfs_open(stin_n, O_RDONLY, &stin);
+	t->t_filetable[0] = fd_init(stin_n, stin, O_RDONLY);
+
+	// setup stout
+	struct vnode *stout = kmalloc(sizeof(struct vnode));
+	char * stout_n = kstrdup("con:");
+	vfs_open(stout_n, O_WRONLY, &stout);
+	t->t_filetable[1] = fd_init(stout_n, stout, O_WRONLY);
+
+	// setup sterr
+	struct vnode *sterr = kmalloc(sizeof(struct vnode));
+	char *sterr_n = kstrdup("con:");
+	vfs_open(sterr_n, O_WRONLY, &sterr);
+	t->t_filetable[2] = fd_init(sterr_n, sterr, O_WRONLY);
 }
 
 struct fd*
@@ -159,7 +180,12 @@ fd_copy(struct fd *master)
 void
 fd_destroy(struct fd *des)
 {
-	(void) des;
+	kfree(des->filename);
+	
+	vfs_close(des->vnode);
+	kfree(des->vnode);
+	
+	kfree(des);
 }
 
 /*
