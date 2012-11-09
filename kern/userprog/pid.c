@@ -49,7 +49,7 @@ pid_getnext(struct thread *master)
 	int search = random() % PID_MAX;
 	
 	lock_acquire(pid_mutex);
-	for(i = 1; pid_table[search] != NULL && i < PID_MAX; i++){
+	for(i = 0; pid_table[search] != NULL && i < PID_MAX; i++){
 		search++;
 		if(search == PID_MAX){
 			search = 1;

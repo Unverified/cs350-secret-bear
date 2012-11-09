@@ -37,11 +37,11 @@ fd_check_valid(int fd)
 }
 
 int
-sys_open(const char * filename, int flags, int *retval)
+sys_open(const_userptr_t filename, int flags, int *retval)
 {
 	int fd = -1;
 	int result, i;
-	char * name;
+	char *k_fname;
 	struct vnode * v_open;
 
 
@@ -59,23 +59,33 @@ sys_open(const char * filename, int flags, int *retval)
 	}
 	
 	else {		// actually open file
-		name = kstrdup(filename);
-		result = vfs_open(name, flags, &v_open);		
-		if (result) {		// vfs_open fail
-			kfree(name);
-			return result;		
+		k_fname = kmalloc(sizeof(char)*NAME_MAX);
+		if(k_fname == NULL){
+			return ENOMEM;
 		}
-		result = fd_init(name, v_open, flags, &(curthread->t_filetable[fd]));
+		size_t size;
+		result = copyinstr(filename, k_fname, sizeof(char)*NAME_MAX, &size);
 		if(result){
-			kfree(name);
+			goto open_err;
+		}
+		result = vfs_open(k_fname, flags, &v_open);		
+		if (result) {	
+			goto open_err;		
+		}
+		result = fd_init(k_fname, v_open, flags, &(curthread->t_filetable[fd]));
+		if(result){
 			vfs_close(v_open);
-			return result;
+			goto open_err;
 		}
 		
 		*retval = result;
 	}	
 	
 	return 0;
+	
+  open_err:
+	kfree(k_fname);
+	return result;
 }
 
 int
@@ -87,7 +97,7 @@ sys_close(int fd, int *retval)
 	}
 
 	fd_destroy(curthread->t_filetable[fd]);
-
+	curthread->t_filetable[fd] = NULL;
 
 	return 0;
 }
@@ -95,8 +105,14 @@ sys_close(int fd, int *retval)
 int
 sys_read(int fd, userptr_t data, size_t size, int *retval)
 {
+	if(size == 0){
+		return 0;
+	}
 	if(fd_check_valid(fd)){
 		return EBADF;
+	}
+	if(data == NULL){
+		return EFAULT;
 	}
 
 	char *k_data = kmalloc(sizeof(char)*size);

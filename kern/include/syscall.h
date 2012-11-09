@@ -32,7 +32,7 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval);
 /* SYS_open system call
  * code resides in /kern/userprog/filecalls.c
  */
-int sys_open(const char * filename, int flags, int *retval);
+int sys_open(const_userptr_t filename, int flags, int *retval);
 
 /* SYS_close system call
  * code resides in /kern/userprog/filecalls.c
