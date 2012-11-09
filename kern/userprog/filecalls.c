@@ -19,6 +19,7 @@ Implementation of all file related system calls:
 #include <vfs.h>
 #include <uio.h>
 #include <vnode.h>
+#include <kern/limits.h>
 
 static
 int
@@ -36,23 +37,54 @@ fd_check_valid(int fd)
 }
 
 int
-sys_open(int *retval)
+sys_open(const char * filename, int flags, int *retval)
 {
-	kprintf("open called!\n");
+	int fd = -1;
+	int result, i;
+	char * name;
+	struct vnode * v_open;
+
+
+	// find next free fd...
+	for (i = 0; i <= MAX_FD; i++)
+	{
+		if (curthread->t_filetable[i] == NULL) {
+			fd = i;
+			break;
+		}
+	}
+
+	if (fd == -1) {
+		*retval = EMFILE;	// fd table full!
+	}
+	else {		// actually open file
+		name = kstrdup(filename);
+		result = vfs_open(name, flags, &v_open);
+		
+		if (result) {		// vfs_open fail
+			return result;		
+		}
 	
-	(void) retval;
+		curthread->t_filetable[fd] = fd_init(name, v_open, flags);	
+		*retval = result;
+	}	
+	
 	return 0;
 }
 
 int
 sys_close(int fd, int *retval)
 {
-	if(fd_check_valid(fd)){
-		return EBADF;
+	if(fd_check_valid(fd) || curthread->t_filetable[fd] == NULL){
+		 *retval = EBADF;
 	}
-	kprintf("close called!\n");
-	
-	(void) retval;
+
+	vfs_close (curthread->t_filetable[fd]->vnode);
+
+	fd_destroy (curthread->t_filetable[fd]);
+
+	*retval = 0;
+
 	return 0;
 }
 
