@@ -16,6 +16,8 @@
 #include <vm.h>
 #include <syscall.h>
 #include <version.h>
+#include <pid.h>
+#include <filecalls.h>
 #include "opt-A0.h"
 
 /*
@@ -79,7 +81,12 @@ boot(void)
 
 	ram_bootstrap();
 	scheduler_bootstrap();
-	thread_bootstrap();
+	#if OPT_A2
+		struct thread *menu = thread_bootstrap();
+	#else
+		thread_bootstrap();
+	#endif
+	
 	vfs_bootstrap();
 	dev_bootstrap();
 	vm_bootstrap();
@@ -94,6 +101,11 @@ boot(void)
 	 */
 	assert(sizeof(userptr_t)==sizeof(char *));
 	assert(sizeof(*(userptr_t)0)==sizeof(char));
+	
+	#if OPT_A2
+		menu->t_pid = pid_getnext(menu);
+		fd_init_initial(menu);
+	#endif
 }
 
 /*

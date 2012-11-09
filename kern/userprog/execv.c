@@ -23,7 +23,7 @@
 }*/
 
 int
-sys_execv(char *progname, char *args[])
+sys_execv(const_userptr_t *progname, userptr_t *args[])
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;

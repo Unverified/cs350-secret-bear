@@ -41,17 +41,10 @@ pid_destroy()
 }
 
 pid_t
-pid_getmenu(struct thread *master)
+pid_getnext(struct thread *master)
 {
-	//threads aren't running yet, no possibility for collision
-	pid_table[0] = master;
+	assert(master != NULL);
 	
-	return 1;
-}
-
-pid_t
-pid_getnextprocess(struct thread *master)
-{
 	int i, retval = 0;
 	int search = random() % PID_MAX;
 	
@@ -71,17 +64,6 @@ pid_getnextprocess(struct thread *master)
 	lock_release(pid_mutex);
 	
 	return retval;
-}
-
-pid_t
-pid_getnext(struct thread *master)
-{
-	assert(master != NULL);
-	
-	if (curthread == NULL){
-		return pid_getmenu(master);
-	}
-	return pid_getnextprocess(master);
 }
 
 struct thread*
@@ -125,8 +107,7 @@ int pid_is_child(struct thread *thread, pid_t pid2) {
 void
 pid_clear(pid_t pid)
 {
-	if (pid <= 0) return;
-	if (pid > PID_MAX) return;
+	if (pid <= 0 || pid > PID_MAX) return;
 	
 	lock_acquire(pid_mutex);
 	pid_table[pid - 1] = NULL;

@@ -67,14 +67,6 @@ thread_create(const char *name)
 	thread->t_cwd = NULL;
 	
 	#if OPT_A2
-	//pid assignment will be called though this structure
-	thread->t_pid = pid_getnext(thread);
-	
-	if(thread->t_pid == 0){ //check to make sure pid is valid
-		kfree(thread);
-		return NULL;
-	}
-
 	thread->t_ppid = 0;
 	thread->t_cvwaitpid = cv_create(thread->t_name);
 
@@ -270,8 +262,11 @@ thread_bootstrap(void)
 
 	/* Set curthread */
 	curthread = me;
+	
 
 	#if OPT_A2
+	//me->t_pid = pid_getnext(me);
+	
 	// Initialize STD console for menu thread
 	//fd_init_initial(me);
 
@@ -315,6 +310,7 @@ thread_fork(const char *name,
 {
 	struct thread *newguy;
 	int s, result;
+
 
 	/* Allocate a thread */
 	newguy = thread_create(name);
@@ -420,7 +416,14 @@ sys_fork(struct trapframe *tf, int *retval)
 	if(newguy==NULL) {
 		return ENOMEM;
 	}
+	
 	newguy->t_ppid = curthread->t_pid;
+	newguy->t_pid = pid_getnext(newguy);
+	if(newguy->t_pid == 0){
+		kfree(newguy->t_name);
+		kfree(newguy);
+		return EAGAIN;
+	}
 
 	newguy->t_stack = kmalloc(STACK_SIZE);
 	if (newguy->t_stack==NULL) {
@@ -440,14 +443,10 @@ sys_fork(struct trapframe *tf, int *retval)
 	}
 
 	s = splhigh();
-	if(newguy->t_pid == 0){
-		result = EAGAIN;
-		goto fail;
-	}
 	
-
 	result = memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
 	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*)md_forkentry);
+
 	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
 	if(result) {
 		goto fail;

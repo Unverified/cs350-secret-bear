@@ -55,17 +55,23 @@ sys_open(const char * filename, int flags, int *retval)
 	}
 
 	if (fd == -1) {
-		*retval = EMFILE;	// fd table full!
+		return EMFILE;	// fd table full!
 	}
+	
 	else {		// actually open file
 		name = kstrdup(filename);
-		result = vfs_open(name, flags, &v_open);
-		
+		result = vfs_open(name, flags, &v_open);		
 		if (result) {		// vfs_open fail
+			kfree(name);
 			return result;		
 		}
-	
-		curthread->t_filetable[fd] = fd_init(name, v_open, flags);	
+		result = fd_init(name, v_open, flags, &(curthread->t_filetable[fd]));
+		if(result){
+			kfree(name);
+			vfs_close(v_open);
+			return result;
+		}
+		
 		*retval = result;
 	}	
 	
@@ -76,14 +82,12 @@ int
 sys_close(int fd, int *retval)
 {
 	if(fd_check_valid(fd) || curthread->t_filetable[fd] == NULL){
-		 *retval = EBADF;
+		*retval = -1;
+		return EBADF;
 	}
 
-	vfs_close (curthread->t_filetable[fd]->vnode);
+	fd_destroy(curthread->t_filetable[fd]);
 
-	fd_destroy (curthread->t_filetable[fd]);
-
-	*retval = 0;
 
 	return 0;
 }
@@ -95,19 +99,24 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 
-	char buffer[size]; //have a buffer in kern space to read to
-	struct fd *des  = curthread->t_filetable[fd];	
+	char *k_data = kmalloc(sizeof(char)*size);
+	if(k_data == NULL){
+		return ENOMEM;
+	}
 	
 	struct uio uio;
-	mk_kuio(&uio, buffer, size, des->offset, UIO_READ);
+	struct fd *des  = curthread->t_filetable[fd];	
+	mk_kuio(&uio, k_data, size, des->offset, UIO_READ);
 	
 	int result = VOP_READ(des->vnode, &uio);
 	if(result){
+		kfree(k_data);
 		return result;
 	}
 	
-	result = copyout(buffer, data, size);
+	result = copyout(k_data, data, size);
 	if(result){
+		kfree(k_data);
 		return result;	
 	}
 	
@@ -126,22 +135,16 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 	
-	//I was getting errors and junk with the prev way so I make this was, it seems to be working for
-	//me.
 	char *k_data = kmalloc(sizeof(char)*(size));
-	size_t actual;
+	if(k_data == NULL){
+		return ENOMEM;
+	}
+	
 	int result = copyin(data, k_data, size);
 	if(result){
-		kprintf("failed\n");
+		kfree(k_data);
 		return result;
 	}
-
-	//set up a spot in kernel space to read out
-	//char k_data[size]; // all chars a 1 byte so cheat the system
-	//int result = copyin(data, (void*)k_data, size);
-	//if(result){
-	//	return result;
-	//}
 	
 	struct uio uio;
 	struct fd *des = curthread->t_filetable[fd];
@@ -155,10 +158,9 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	}
 	
 	//update offset and return value, success!
+	kfree(k_data);
 	des->offset = uio.uio_offset;
 	*retval = (int)uio.uio_resid;
-
-	kfree(k_data);
 	
 	return 0;
 }
@@ -196,49 +198,43 @@ fd_init_initial(struct thread* t)
 		kfree(stin_n);
 		return ret;
 	}
-	
-	struct fd *fd_stin;
-	ret = fd_init(stin_n, stin, O_RDONLY, &fd_stin);
+	ret = fd_init(stin_n, stin, O_RDONLY, &(t->t_filetable[0]));
 	if(ret){
 		kfree(stin_n);
 		vfs_close(stin);
 		return ret;
 	}
-	t->t_filetable[0] = fd_stin;
 
 	// setup stout
 	struct vnode *stout;
 	char *stout_n = kstrdup("con:");
 	if(stout_n == NULL){
-		fd_destroy(fd_stin);
+		fd_destroy(t->t_filetable[0]);
 		t->t_filetable[0] = NULL;
 		return ENOMEM;
 	}
-	
 	ret = vfs_open(stout_n, O_WRONLY, &stout);
 	if(ret){
 		kfree(stout_n);
-		fd_destroy(fd_stin);
+		fd_destroy(t->t_filetable[0]);
 		t->t_filetable[0] = NULL;
 		return ret;
 	}
-	struct fd *fd_stout;
-	ret = fd_init(stout_n, stout, O_WRONLY, &fd_stout);
+	ret = fd_init(stout_n, stout, O_WRONLY, &(t->t_filetable[1]));
 	if(ret){
 		kfree(stout_n);
 		vfs_close(stout);
-		fd_destroy(fd_stin);
+		fd_destroy(t->t_filetable[0]);
 		t->t_filetable[0] = NULL;
 		return ret;
 	}
-	t->t_filetable[1] = fd_stout;
-
+	
 	// setup sterr
 	struct vnode *sterr;
 	char *sterr_n = kstrdup("con:");
 	if(sterr_n == NULL){
-		fd_destroy(fd_stin);
-		fd_destroy(fd_stout);
+		fd_destroy(t->t_filetable[0]);
+		fd_destroy(t->t_filetable[1]);
 		t->t_filetable[0] = NULL;
 		t->t_filetable[1] = NULL;
 		return ENOMEM;
@@ -246,24 +242,22 @@ fd_init_initial(struct thread* t)
 	ret = vfs_open(sterr_n, O_WRONLY, &sterr);
 	if(ret){
 		kfree(sterr_n);
-		fd_destroy(fd_stin);
-		fd_destroy(fd_stout);
+		fd_destroy(t->t_filetable[0]);
+		fd_destroy(t->t_filetable[1]);
 		t->t_filetable[0] = NULL;
 		t->t_filetable[1] = NULL;
 		return ret;
 	}
-	struct fd *fd_sterr;
-	ret = fd_init(sterr_n, sterr, O_WRONLY, &fd_sterr);
+	ret = fd_init(sterr_n, sterr, O_WRONLY, &(t->t_filetable[2]));
 	if(ret){
 		kfree(sterr_n);
 		vfs_close(sterr);
-		fd_destroy(fd_stin);
-		fd_destroy(fd_stout);
+		fd_destroy(t->t_filetable[0]);
+		fd_destroy(t->t_filetable[1]);
 		t->t_filetable[0] = NULL;
 		t->t_filetable[1] = NULL;
 		return ret;
 	}
-	t->t_filetable[2] = fd_sterr;
 	
 	return 0;
 }
@@ -301,7 +295,7 @@ void
 fd_destroy(struct fd *des)
 {
 	kfree(des->filename);
-	//vfs_close(des->vnode);
+	vfs_close(des->vnode);
 	
 	kfree(des);
 }
