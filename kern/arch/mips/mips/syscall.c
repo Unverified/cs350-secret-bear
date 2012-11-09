@@ -10,6 +10,7 @@
 #include <synch.h>
 #include <curthread.h>
 #include <addrspace.h>
+#include <pid.h>
 
 #include "opt-A2.h"
 /*
@@ -162,7 +163,7 @@ md_forkentry(struct trapframe *tf)
 	as_activate(curthread->t_vmspace);
 
 	tf->tf_v0 = 0;
-	tf->tf_a0 = 0;
+	tf->tf_a3 = 0;
 	tf->tf_epc += 4;
 	mips_usermode(tf); 
 }

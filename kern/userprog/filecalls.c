@@ -8,7 +8,6 @@ Implementation of all file related system calls:
 	- write
 
 */
-
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -29,7 +28,7 @@ fd_check_valid(int fd)
 		return 1;
 	}
 	
-	if(curthread->fdt->table[fd].vnode == NULL){
+	if(curthread->t_filetable[fd] == NULL){
 		return 1;
 	}
 	
@@ -63,16 +62,14 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
-	
-	struct vnode *v_read = curthread->fdt->table[fd].vnode;
-	off_t offset = curthread->fdt->table[fd].offset;
+
+	char buffer[size]; //have a buffer in kern space to read to
+	struct fd *des  = curthread->t_filetable[fd];	
 	
 	struct uio uio;
-	char buffer[size];
+	mk_kuio(&uio, buffer, size, des->offset, UIO_READ);
 	
-	mk_kuio(&uio, buffer, size, offset, UIO_READ);
-	
-	int result = VOP_READ(v_read, &uio);
+	int result = VOP_READ(des->vnode, &uio);
 	if(result){
 		return result;
 	}
@@ -82,8 +79,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return result;	
 	}
 	
-	
-	curthread->fdt->table[fd].offset = uio.uio_offset;
+	des->offset = uio.uio_offset;
 	*retval = size - (int)uio.uio_resid;
 	return 0;
 }
@@ -91,36 +87,124 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 int
 sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 {
+	if(size == 0)
+		return 0;
+
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
 	
-	struct vnode *v_write = curthread->fdt->table[fd].vnode;
-	off_t offset = curthread->fdt->table[fd].offset;
-	
-	//set up a spot in kernel space to read out
-	char k_data[size]; // all chars a 1 byte so cheat the system
-	int result = copyin(data, (void*)k_data, size);
+	//I was getting errors and junk with the prev way so I make this was, it seems to be working for
+	//me. With the prev stuff if I ran "testbin/badtest a" i would get :
+	//	panic: Assertion failed: (vaddr_t)ptr%PAGE_SIZE==0, at ../../lib/kheap.c:574 (kfree)
+	char *k_data = kmalloc(sizeof(char)*(size));
+	size_t actual;
+	int result = copyin(data, k_data, size);
 	if(result){
+		kprintf("failed\n");
 		return result;
 	}
+
+	//set up a spot in kernel space to read out
+	//char k_data[size]; // all chars a 1 byte so cheat the system
+	//int result = copyin(data, (void*)k_data, size);
+	//if(result){
+	//	return result;
+	//}
 	
 	struct uio uio;
-	mk_kuio(&uio, k_data, size, offset, UIO_WRITE);
+	struct fd *des = curthread->t_filetable[fd];
+	mk_kuio(&uio, k_data, size, des->offset, UIO_WRITE);
 
 	//write to the device, record if there is an error
-	result = VOP_WRITE(v_write, &uio);
+	result = VOP_WRITE(des->vnode, &uio);
 	if(result){
+		kfree(k_data);
 		return result;
 	}
 	
 	//update offset and return value, success!
-	curthread->fdt->table[fd].offset = uio.uio_offset;
+	des->offset = uio.uio_offset;
 	*retval = (int)uio.uio_resid;
+
+	kfree(k_data);
 	
 	return 0;
 }
 
+struct fd*
+fd_init(char *name, struct vnode *node, int flag)
+{
+	struct fd* new_fd = kmalloc(sizeof(struct fd));
+	
+	new_fd->filename = name;
+	new_fd->vnode = node;
+	new_fd->offset = 0;
+	new_fd->flags = flag;
+	
+	return new_fd;
+}
+
+void
+fd_init_initial(struct thread* t)
+{
+	// setup stdin
+	struct vnode *stin; 
+	char *stin_n = kstrdup("con:");
+	vfs_open(stin_n, O_RDONLY, &stin);
+	t->t_filetable[0] = fd_init(stin_n, stin, O_RDONLY);
+
+	// setup stout
+	struct vnode *stout;
+	char * stout_n = kstrdup("con:");
+	vfs_open(stout_n, O_WRONLY, &stout);
+	t->t_filetable[1] = fd_init(stout_n, stout, O_WRONLY);
+
+	// setup sterr
+	struct vnode *sterr;
+	char *sterr_n = kstrdup("con:");
+	vfs_open(sterr_n, O_WRONLY, &sterr);
+	t->t_filetable[2] = fd_init(sterr_n, sterr, O_WRONLY);
+}
+
+struct fd*
+fd_copy(struct fd *master)
+{
+	struct fd* copy = kmalloc(sizeof(struct fd));
+	if(copy == NULL){
+		return NULL;
+	}
+	
+	char * name = kstrdup(master->filename);
+	if(name == NULL){
+		return NULL;
+	}
+	
+	struct vnode *copy_node = kmalloc(sizeof(struct vnode));
+	if(copy_node == NULL){
+		return NULL;
+	}
+	vfs_open(name, master->flags, &copy_node);
+	
+	copy->filename = name;
+	copy->vnode = copy_node;
+	copy->offset = master->offset;
+	copy->flags = master->flags;
+	
+	return copy;
+}
+
+void
+fd_destroy(struct fd *des)
+{
+	kfree(des->filename);
+	
+	vfs_close(des->vnode);
+	
+	kfree(des);
+}
+
+/*
 struct fdt* 
 fdt_init ()
 {
@@ -200,3 +284,4 @@ int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int 
         return fdNum;
 }
 
+*/

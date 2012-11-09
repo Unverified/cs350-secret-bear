@@ -1,6 +1,7 @@
 #include <types.h>
 #include <lib.h>
 #include <kern/errno.h>
+#include <kern/limits.h>
 #include <array.h>
 #include <machine/spl.h>
 #include <machine/pcb.h>

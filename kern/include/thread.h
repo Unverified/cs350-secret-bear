@@ -42,21 +42,19 @@ struct thread {
 	struct vnode *t_cwd;
 
 	#if OPT_A2
-
-	/*
-	File Descriptor Table
-	See kern/include/filecalls.h
-	*/
-	struct fdt * fdt;
-
-
 	/* Process ID
 	 * Since OS161 is 1 thread per process, no need to create an extra object
 	 * the thread can hold the process info aswell */
 	pid_t t_pid;
 	pid_t t_ppid;
 
+	/* condition variable used as a signal for waitpid */
 	struct cv *t_cvwaitpid;
+	
+	/* File descriptors
+	 * each thread has unique file table */
+	struct fd *t_filetable[MAX_FD];
+	 
 	#endif 
 };
 

@@ -8,7 +8,9 @@
 #include <vm.h>
 #include <vfs.h>
 #include <test.h>
+#include <kern/limits.h>
 #include "opt-A2.h"
+
 
 /*int strlen(char *str) {
 	int strlen = 0;
@@ -27,8 +29,24 @@ sys_execv(char *progname, char *args[])
 	vaddr_t entrypoint, stackptr;
 	int result;
 
-	if(progname == NULL || args == NULL) {
-		return EINVAL;
+	if(progname == NULL || progname >= USERTOP || args == NULL) {
+		return EFAULT;
+	}
+	char *k_progname = kmalloc(PATH_MAX);
+	size_t actual;
+	result = copyinstr(progname,k_progname,PATH_MAX,&actual);	
+	if(result) {
+		return result;
+	}
+	if(*k_progname == '\0') {
+		return EISDIR;
+	}
+	char **k_args;
+	k_args = kmalloc(sizeof(char*));
+	result = copyin(args, k_args, sizeof(char*));
+	if(result) {
+		kfree(k_args);
+		return EFAULT;
 	}
 
 	//get the number of args
@@ -37,36 +55,41 @@ sys_execv(char *progname, char *args[])
 	for(i=0;;i++) {
 		if(args[i] == NULL)
 			break;
+
 		nargs++;
 	}
 
 	//need to have atleast the prog name in args
 	if(nargs < 1) {
-		return EINVAL;
+		return EFAULT;
 	}
-
-	//allocate space for the char ptrs on kernel
-	char *k_args[nargs];
-
 	//put all the args onto kernal space
 	for(i=0;i<nargs;i++) {
-		int _strlen = strlen(args[i]) + 1;
-		char *k_str = kmalloc(sizeof(char)*_strlen);
+		char test[1];
+		result = copyin(k_args[i], test, 1);
+		if(result) {
+			for( i=i-1; i>=0; i--){
+				kfree(k_args[i]);
+			}
 
+			return result;
+		}
+		
+		char *k_str = kmalloc(strlen(k_args[i]));
 		size_t actual;
-		copyinstr(args[i], k_str, _strlen, &actual);
-
+		result = copyinstr(k_args[i], k_str, strlen(k_args[i]), &actual);
 		k_args[i] = k_str;
 	}
 
+
 	/* Open the file. */
-	result = vfs_open(progname, O_RDONLY, &v);
+	result = vfs_open(k_progname, O_RDONLY, &v);
 	if (result) {
 		return result;
 	}
 
 	struct addrspace *prev_as = curthread->t_vmspace;
-
+	
 	/* Create a new address space. */
 	curthread->t_vmspace = as_create();
 	if (curthread->t_vmspace==NULL) {
@@ -75,7 +98,6 @@ sys_execv(char *progname, char *args[])
 	}
 
 	as_destroy(prev_as);
-
 	/* Activate it. */
 	as_activate(curthread->t_vmspace);
 
@@ -134,6 +156,7 @@ sys_execv(char *progname, char *args[])
 	for(i=0; i<nargs; i++){
 		kfree(k_args[i]);
 	}
+	kfree(k_args);
 
 	/* Warp to user mode. */
 	md_usermode(nargs,(userptr_t) newArgsPtr, stackptr, entrypoint);
