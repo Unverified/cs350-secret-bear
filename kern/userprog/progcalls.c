@@ -50,6 +50,15 @@ sys_getpid(int *retval)
 int
 sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 {
+	int result;
+
+	if((void *)status == NULL)
+		return EFAULT;
+
+	if(pid == curthread->t_pid || pid <= 0 || pid > PID_MAX || options != 0) {
+		return EINVAL;
+	}
+
 	lock_acquire(mutex);
 
 	if(options != 0) {
@@ -59,7 +68,12 @@ sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 
 	int exitcode = pid_getexitcode(pid);
 	if(exitcode != -1) {
-		copyout(&exitcode, status, sizeof(int));
+		result = copyout(&exitcode, status, sizeof(int));
+		if(result) {
+			lock_release(mutex);
+			return result;
+		}
+
 		*retval = (int)pid;
 		lock_release(mutex);
 		return 0;
@@ -79,7 +93,12 @@ sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 
 	exitcode = pid_getexitcode(pid);
 
-	copyout(&exitcode, status, sizeof(int));
+	result = copyout(&exitcode, status, sizeof(int));
+	if(result) {
+		lock_release(mutex);
+		return result;
+	}
+
 	*retval = (int)pid;
 
 	lock_release(mutex);

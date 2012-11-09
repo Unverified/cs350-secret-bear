@@ -119,17 +119,29 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 int
 sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 {
+	if(size == 0)
+		return 0;
+
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
 	
-	char k_data[size];
-
-	//set up a spot in kernel space to read out
-	int result = copyin(data, (void*)k_data, size);
+	//I was getting errors and junk with the prev way so I make this was, it seems to be working for
+	//me.
+	char *k_data = kmalloc(sizeof(char)*(size));
+	size_t actual;
+	int result = copyin(data, k_data, size);
 	if(result){
+		kprintf("failed\n");
 		return result;
 	}
+
+	//set up a spot in kernel space to read out
+	//char k_data[size]; // all chars a 1 byte so cheat the system
+	//int result = copyin(data, (void*)k_data, size);
+	//if(result){
+	//	return result;
+	//}
 	
 	struct uio uio;
 	struct fd *des = curthread->t_filetable[fd];
@@ -138,12 +150,16 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	//write to the device, record if there is an error
 	result = VOP_WRITE(des->vnode, &uio);
 	if(result){
+		kfree(k_data);
 		return result;
 	}
 	
 	//update offset and return value, success!
 	des->offset = uio.uio_offset;
 	*retval = (int)uio.uio_resid;
+
+	kfree(k_data);
+	
 	return 0;
 }
 
