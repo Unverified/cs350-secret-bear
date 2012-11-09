@@ -465,9 +465,22 @@ sys_fork(struct trapframe *tf, int *retval)
 		goto fail;
 	}
 	
+	// initialize standard fd's
 	result = fd_init_initial(newguy);
 	if(result){
 		goto fail;
+	}
+
+	// copy rest of fd's
+	int i;
+	for (i = 3; i <= MAX_FD; i++)
+	{
+		if (curthread->t_filetable[i] != NULL) {
+			result = fd_copy(curthread->t_filetable[i], newguy->t_filetable[i]);
+		}
+		if (result) {
+			goto fail;
+		}
 	}
 
 	result = make_runnable(newguy);
