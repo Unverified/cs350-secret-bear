@@ -116,6 +116,52 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 }
 
 
+struct fd*
+fd_init(char *name, struct vnode *node, int flag)
+{
+	struct fd* new_fd = kmalloc(sizeof(struct fd));
+	
+	new_fd->filename = name;
+	new_fd->vnode = node;
+	new_fd->offset = 0;
+	new_fd->flags = flag;
+	
+	return new_fd;
+}
+
+struct fd*
+fd_copy(struct fd *master)
+{
+	struct fd* copy = kmalloc(sizeof(struct fd));
+	if(copy == NULL){
+		return NULL;
+	}
+	
+	char * name = kstrdup(master->filename);
+	if(name == NULL){
+		return NULL;
+	}
+	
+	struct vnode *copy_node = kmalloc(sizeof(struct vnode));
+	if(copy_node == NULL){
+		return NULL;
+	}
+	vfs_open(name, master->flags, &copy_node);
+	
+	copy->filename = name;
+	copy->vnode = copy_node;
+	copy->offset = master->offset;
+	copy->flags = master->flags;
+	
+	return copy;
+}
+
+void
+fd_destroy(struct fd *des)
+{
+	(void) des;
+}
+
 /*
 struct fdt* 
 fdt_init ()
