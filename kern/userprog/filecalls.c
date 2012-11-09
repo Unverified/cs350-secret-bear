@@ -129,22 +129,22 @@ fd_init(char *name, struct vnode *node, int flag)
 }
 
 void
-fd_init_inital(struct thread* t)
+fd_init_initial(struct thread* t)
 {
 	// setup stdin
-	struct vnode *stin = kmalloc(sizeof(struct vnode));
+	struct vnode *stin; 
 	char *stin_n = kstrdup("con:");
 	vfs_open(stin_n, O_RDONLY, &stin);
 	t->t_filetable[0] = fd_init(stin_n, stin, O_RDONLY);
 
 	// setup stout
-	struct vnode *stout = kmalloc(sizeof(struct vnode));
+	struct vnode *stout;
 	char * stout_n = kstrdup("con:");
 	vfs_open(stout_n, O_WRONLY, &stout);
 	t->t_filetable[1] = fd_init(stout_n, stout, O_WRONLY);
 
 	// setup sterr
-	struct vnode *sterr = kmalloc(sizeof(struct vnode));
+	struct vnode *sterr;
 	char *sterr_n = kstrdup("con:");
 	vfs_open(sterr_n, O_WRONLY, &sterr);
 	t->t_filetable[2] = fd_init(sterr_n, sterr, O_WRONLY);
@@ -183,7 +183,6 @@ fd_destroy(struct fd *des)
 	kfree(des->filename);
 	
 	vfs_close(des->vnode);
-	kfree(des->vnode);
 	
 	kfree(des);
 }

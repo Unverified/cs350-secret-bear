@@ -45,7 +45,7 @@ struct fd{
 
 struct fd * fd_init(char *name, struct vnode *node, int flag);
 
-void fd_init_inital(struct thread * t);
+void fd_init_initial(struct thread * t);
 
 struct fd * fd_copy(struct fd *master);
 

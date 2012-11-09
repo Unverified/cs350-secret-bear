@@ -8,6 +8,7 @@
 #include <vm.h>
 #include <vfs.h>
 #include <test.h>
+#include <filecalls.h>
 #include "opt-A2.h"
 
 /*int strlen(char *str) {
@@ -26,6 +27,9 @@ sys_execv(const_userptr_t progname, userptr_t args[])
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
+
+	// FD initialize
+	//fd_init_initial(curthread);
 
 	if(progname == NULL || args == NULL) {
 		return EINVAL;

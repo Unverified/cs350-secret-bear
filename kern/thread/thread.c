@@ -17,6 +17,7 @@
 #include <syscall.h>
 #include <pid.h>
 #include <synch.h>
+#include <filecalls.h>
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
@@ -77,7 +78,7 @@ thread_create(const char *name)
 	thread->t_cvwaitpid = cv_create(thread->t_name);
 
 	int i;
-	for(i=0;i<MAX_FD;i++){
+	for(i=3;i<MAX_FD;i++){
 		thread->t_filetable[i] = NULL;
 	}
 
@@ -110,7 +111,6 @@ thread_destroy(struct thread *thread)
 	}
 
 	#if OPT_A2
-	//fdt_free(thread->fdt);
 	cv_destroy(thread->t_cvwaitpid);
 	#endif /* OPT_A2 */
 
@@ -269,6 +269,12 @@ thread_bootstrap(void)
 
 	/* Set curthread */
 	curthread = me;
+
+	#if OPT_A2
+	// Initialize STD console for menu thread
+	//fd_init_initial(me);
+
+	#endif /* OPT_A2 */
 
 	/* Number of threads starts at 1 */
 	numthreads = 1;
@@ -435,6 +441,7 @@ sys_fork(struct trapframe *tf, int *retval)
 
 	// make newguy's fdt
 	// newguy->fdt = fdt_init();
+	fd_init_initial(newguy);
 
 	s = splhigh();
 
@@ -600,6 +607,17 @@ thread_exit(void)
 
 	#if OPT_A2
 	pid_clear(curthread->t_pid);
+
+	// file descriptor free
+        int i;
+        for (i = 0; i <= MAX_FD; i++)
+        {
+                if(curthread->t_filetable[i] != NULL){
+                        fd_destroy(curthread->t_filetable[i]);
+                }
+        }
+
+
 	#endif /* OPT_A2 */
 
 	splhigh();

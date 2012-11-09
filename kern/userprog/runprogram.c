@@ -69,6 +69,7 @@ runprogram(char *progname, int nargs, char **args)
 	#if OPT_A2
 	// file descript table initialization
 	//curthread->fdt = fdt_init();
+	fd_init_initial(curthread);
 
 	vaddr_t addrOfCharPtrs[nargs];
 
