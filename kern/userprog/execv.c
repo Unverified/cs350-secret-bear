@@ -21,7 +21,7 @@
 }*/
 
 int
-sys_execv(char *progname, char *args[])
+sys_execv(const_userptr_t progname, userptr_t args[])
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
@@ -50,8 +50,8 @@ sys_execv(char *progname, char *args[])
 
 	//put all the args onto kernal space
 	for(i=0;i<nargs;i++) {
-		int _strlen = strlen(args[i]) + 1;
-		char *k_str = kmalloc(sizeof(char)*_strlen);
+		int _strlen = strlen((char*)args[i]) + 1;
+		char *k_str = kmalloc(_strlen);
 
 		size_t actual;
 		copyinstr(args[i], k_str, _strlen, &actual);
@@ -60,7 +60,7 @@ sys_execv(char *progname, char *args[])
 	}
 
 	/* Open the file. */
-	result = vfs_open(progname, O_RDONLY, &v);
+	result = vfs_open((char*)progname, O_RDONLY, &v);
 	if (result) {
 		return result;
 	}

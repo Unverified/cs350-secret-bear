@@ -28,22 +28,16 @@ struct fd {
 	size_t flags;			// read, write or append permissions
 };
 
-// File Descriptor table
-struct fdt {	
-	int max;
-	struct fd table[MAX_FD];
-};
-
 // Initialize fdt 
 // Sets all vnodes to NULL
 // Initializes stdin, stdout, stderr
-struct fdt * fdt_init (void);
+// struct fdt * fdt_init (void);
 
 // free fdt
-void fdt_free(struct fdt * oldtable);
+// void fdt_free(struct fdt * oldtable);
 
 // Add entry to File Descript Table, returns the fd number
 // Returns -1 on error
-int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags);
+// int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags);
 
 #endif /* _FILE_CALLS_H_ */

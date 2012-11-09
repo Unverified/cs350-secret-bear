@@ -8,7 +8,6 @@ Implementation of all file related system calls:
 	- write
 
 */
-
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -29,7 +28,7 @@ fd_check_valid(int fd)
 		return 1;
 	}
 	
-	if(curthread->fdt->table[fd].vnode == NULL){
+	if(curthread->t_filetable[fd] == NULL){
 		return 1;
 	}
 	
@@ -63,16 +62,14 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
-	
-	struct vnode *v_read = curthread->fdt->table[fd].vnode;
-	off_t offset = curthread->fdt->table[fd].offset;
+
+	char buffer[size]; //have a buffer in kern space to read to
+	struct fd *des  = curthread->t_filetable[fd];	
 	
 	struct uio uio;
-	char buffer[size];
+	mk_kuio(&uio, buffer, size, des->offset, UIO_READ);
 	
-	mk_kuio(&uio, buffer, size, offset, UIO_READ);
-	
-	int result = VOP_READ(v_read, &uio);
+	int result = VOP_READ(des->vnode, &uio);
 	if(result){
 		return result;
 	}
@@ -82,8 +79,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return result;	
 	}
 	
-	
-	curthread->fdt->table[fd].offset = uio.uio_offset;
+	des->offset = uio.uio_offset;
 	*retval = size - (int)uio.uio_resid;
 	return 0;
 }
@@ -95,32 +91,32 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 	
-	struct vnode *v_write = curthread->fdt->table[fd].vnode;
-	off_t offset = curthread->fdt->table[fd].offset;
-	
+	char k_data[size];
+
 	//set up a spot in kernel space to read out
-	char k_data[size]; // all chars a 1 byte so cheat the system
 	int result = copyin(data, (void*)k_data, size);
 	if(result){
 		return result;
 	}
 	
 	struct uio uio;
-	mk_kuio(&uio, k_data, size, offset, UIO_WRITE);
+	struct fd *des = curthread->t_filetable[fd];
+	mk_kuio(&uio, k_data, size, des->offset, UIO_WRITE);
 
 	//write to the device, record if there is an error
-	result = VOP_WRITE(v_write, &uio);
+	result = VOP_WRITE(des->vnode, &uio);
 	if(result){
 		return result;
 	}
 	
 	//update offset and return value, success!
-	curthread->fdt->table[fd].offset = uio.uio_offset;
+	des->offset = uio.uio_offset;
 	*retval = (int)uio.uio_resid;
-	
 	return 0;
 }
 
+
+/*
 struct fdt* 
 fdt_init ()
 {
@@ -200,3 +196,4 @@ int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int 
         return fdNum;
 }
 
+*/

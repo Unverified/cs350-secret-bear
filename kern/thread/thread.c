@@ -4,6 +4,7 @@
 #include <types.h>
 #include <lib.h>
 #include <kern/errno.h>
+#include <kern/limits.h>
 #include <array.h>
 #include <machine/spl.h>
 #include <machine/pcb.h>
@@ -74,6 +75,12 @@ thread_create(const char *name)
 
 	thread->t_ppid = 0;
 	thread->t_cvwaitpid = cv_create(thread->t_name);
+
+	int i;
+	for(i=0;i<MAX_FD;i++){
+		thread->t_filetable[i] = NULL;
+	}
+
 	#endif /* OPT_A2 */
 
 	return thread;
@@ -103,7 +110,7 @@ thread_destroy(struct thread *thread)
 	}
 
 	#if OPT_A2
-	fdt_free(thread->fdt);
+	//fdt_free(thread->fdt);
 	cv_destroy(thread->t_cvwaitpid);
 	#endif /* OPT_A2 */
 
@@ -427,7 +434,7 @@ sys_fork(struct trapframe *tf, int *retval)
 	}
 
 	// make newguy's fdt
-	newguy->fdt = fdt_init();
+	// newguy->fdt = fdt_init();
 
 	s = splhigh();
 
