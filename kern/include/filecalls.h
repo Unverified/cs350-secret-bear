@@ -19,9 +19,7 @@ Note the special entries in the table:
 #include <vnode.h>
 #include <uio.h>
 #include <array.h>
-
-
-#define MAX_FD 10		// maximum size of File Descriptor Table
+#include <kern/limits.h>
 
 struct fd {
 	char * filename;
