@@ -125,8 +125,8 @@ int pid_is_child(struct thread *thread, pid_t pid2) {
 void
 pid_clear(pid_t pid)
 {
-	assert(pid > 0);
-	assert(pid <= PID_MAX);
+	if (pid <= 0) return;
+	if (pid > PID_MAX) return;
 	
 	lock_acquire(pid_mutex);
 	pid_table[pid - 1] = NULL;

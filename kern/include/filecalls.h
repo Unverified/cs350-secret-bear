@@ -43,11 +43,11 @@ struct fd{
 // Returns -1 on error
 // int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags);
 
-struct fd * fd_init(char *name, struct vnode *node, int flag);
+int fd_init(char *name, struct vnode *node, int flag, struct fd **retval);
 
-void fd_init_initial(struct thread * t);
+int fd_init_initial(struct thread * t);
 
-struct fd * fd_copy(struct fd *master);
+int fd_copy(struct fd *master, struct fd **copy);
 
 void fd_destroy(struct fd *des);
 

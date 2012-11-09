@@ -115,156 +115,145 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	return 0;
 }
 
-struct fd*
-fd_init(char *name, struct vnode *node, int flag)
+int
+fd_init(char *name, struct vnode *node, int flag, struct fd **retval)
 {
 	struct fd* new_fd = kmalloc(sizeof(struct fd));
+	if(new_fd == NULL){
+		return ENOMEM;
+	}
 	
 	new_fd->filename = name;
 	new_fd->vnode = node;
 	new_fd->offset = 0;
 	new_fd->flags = flag;
 	
-	return new_fd;
+	*retval = new_fd;
+	return 0;
 }
 
-void
+int
 fd_init_initial(struct thread* t)
 {
+	int ret;
+	
 	// setup stdin
 	struct vnode *stin; 
 	char *stin_n = kstrdup("con:");
-	vfs_open(stin_n, O_RDONLY, &stin);
-	t->t_filetable[0] = fd_init(stin_n, stin, O_RDONLY);
+	if(stin_n == NULL){
+		return ENOMEM;
+	}
+	ret = vfs_open(stin_n, O_RDONLY, &stin);
+	if(ret){
+		kfree(stin_n);
+		return ret;
+	}
+	
+	struct fd *fd_stin;
+	ret = fd_init(stin_n, stin, O_RDONLY, &fd_stin);
+	if(ret){
+		kfree(stin_n);
+		vfs_close(stin);
+		return ret;
+	}
+	t->t_filetable[0] = fd_stin;
 
 	// setup stout
 	struct vnode *stout;
-	char * stout_n = kstrdup("con:");
-	vfs_open(stout_n, O_WRONLY, &stout);
-	t->t_filetable[1] = fd_init(stout_n, stout, O_WRONLY);
+	char *stout_n = kstrdup("con:");
+	if(stout_n == NULL){
+		fd_destroy(fd_stin);
+		t->t_filetable[0] = NULL;
+		return ENOMEM;
+	}
+	
+	ret = vfs_open(stout_n, O_WRONLY, &stout);
+	if(ret){
+		kfree(stout_n);
+		fd_destroy(fd_stin);
+		t->t_filetable[0] = NULL;
+		return ret;
+	}
+	struct fd *fd_stout;
+	ret = fd_init(stout_n, stout, O_WRONLY, &fd_stout);
+	if(ret){
+		kfree(stout_n);
+		vfs_close(stout);
+		fd_destroy(fd_stin);
+		t->t_filetable[0] = NULL;
+		return ret;
+	}
+	t->t_filetable[1] = fd_stout;
 
 	// setup sterr
 	struct vnode *sterr;
 	char *sterr_n = kstrdup("con:");
-	vfs_open(sterr_n, O_WRONLY, &sterr);
-	t->t_filetable[2] = fd_init(sterr_n, sterr, O_WRONLY);
+	if(sterr_n == NULL){
+		fd_destroy(fd_stin);
+		fd_destroy(fd_stout);
+		t->t_filetable[0] = NULL;
+		t->t_filetable[1] = NULL;
+		return ENOMEM;
+	}
+	ret = vfs_open(sterr_n, O_WRONLY, &sterr);
+	if(ret){
+		kfree(sterr_n);
+		fd_destroy(fd_stin);
+		fd_destroy(fd_stout);
+		t->t_filetable[0] = NULL;
+		t->t_filetable[1] = NULL;
+		return ret;
+	}
+	struct fd *fd_sterr;
+	ret = fd_init(sterr_n, sterr, O_WRONLY, &fd_sterr);
+	if(ret){
+		kfree(sterr_n);
+		vfs_close(sterr);
+		fd_destroy(fd_stin);
+		fd_destroy(fd_stout);
+		t->t_filetable[0] = NULL;
+		t->t_filetable[1] = NULL;
+		return ret;
+	}
+	t->t_filetable[2] = fd_sterr;
+	
+	return 0;
 }
 
-struct fd*
-fd_copy(struct fd *master)
+int
+fd_copy(struct fd *master, struct fd **retval)
 {
-	struct fd* copy = kmalloc(sizeof(struct fd));
-	if(copy == NULL){
-		return NULL;
-	}
-	
-	char * name = kstrdup(master->filename);
+	int ret;
+	struct fd *copy;
+
+	char *name = kstrdup(master->filename);
 	if(name == NULL){
-		return NULL;
+		return ENOMEM;
 	}
 	
-	struct vnode *copy_node = kmalloc(sizeof(struct vnode));
-	if(copy_node == NULL){
-		return NULL;
+	struct vnode *copy_node;
+	ret = vfs_open(name, master->flags, &copy_node);
+	if(ret){
+		kfree(name);
+		return ret;
 	}
-	vfs_open(name, master->flags, &copy_node);
 	
-	copy->filename = name;
-	copy->vnode = copy_node;
+	ret = fd_init(name, copy_node, master->flags, &copy);
+	if(ret) {
+		kfree(name);
+		return ret;
+	}
 	copy->offset = master->offset;
-	copy->flags = master->flags;
 	
-	return copy;
+	*retval = copy;
+	return 0;
 }
 
 void
 fd_destroy(struct fd *des)
 {
 	kfree(des->filename);
-	
-	vfs_close(des->vnode);
+	//vfs_close(des->vnode);
 	
 	kfree(des);
 }
-
-/*
-struct fdt* 
-fdt_init ()
-{
-	struct fdt *newtable;
-	newtable = kmalloc(sizeof (struct fdt));
-
-	// set vnodes to NULL
-	int i;
-	for (i = 0; i <= MAX_FD; i++)
-	{
-		newtable->table[i].vnode = NULL;	
-	}
-
-	// setup stdin, stdout, stderr
-	struct vnode * stin;
-	char * first = NULL;
-	first = kstrdup("con:");
-	vfs_open(first, O_RDONLY, &stin);
-	newtable->table[0].filename = first;
-	newtable->table[0].vnode = stin;
-	newtable->table[0].offset = 0;
-	newtable->table[0].flags = O_RDONLY;
-
-	struct vnode * stout;
-	char * second = NULL;
-	second = kstrdup("con:");
-	vfs_open(second, O_WRONLY, &stout);
-	newtable->table[1].filename = second; 
-	newtable->table[1].vnode = stout;
-	newtable->table[1].offset = 0;
-	newtable->table[1].flags = O_WRONLY;
-
-	struct vnode * sterr;
-	char * third = NULL;
-	third = kstrdup("con:");
-	vfs_open(third, O_WRONLY, &sterr);
-	newtable->table[2].filename = third;
-	newtable->table[2].vnode = sterr;
-	newtable->table[2].offset = 0;
-	newtable->table[2].flags = O_WRONLY;	
-
-	return newtable;
-}
-
-void
-fdt_free(struct fdt * oldtable)
-{
-	kfree(oldtable);
-}
-
-int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags)
-{
-        int fdNum = -1;
-
-        // find next available fd entry
-        int i;
-        for (i = 0; i <= fdt->max; i++)
-        {
-                if (fdt->table[i].vnode == NULL)
-                {
-                        fdNum = i;
-                        break;
-                }
-        }
-	
-	// add new fd
-        if (fdNum != -1)
-        {
-		char * name;
-		name = kstrdup(filename);
-                fdt->table[i].filename = name;
-                fdt->table[i].vnode = vnode;
-                fdt->table[i].offset = 0;
-                fdt->table[i].flags = flags;
-        }
-
-        return fdNum;
-}
-
-*/

@@ -69,6 +69,7 @@ thread_create(const char *name)
 	#if OPT_A2
 	//pid assignment will be called though this structure
 	thread->t_pid = pid_getnext(thread);
+	
 	if(thread->t_pid == 0){ //check to make sure pid is valid
 		kfree(thread);
 		return NULL;
@@ -78,7 +79,7 @@ thread_create(const char *name)
 	thread->t_cvwaitpid = cv_create(thread->t_name);
 
 	int i;
-	for(i=3;i<MAX_FD;i++){
+	for(i=0;i<MAX_FD;i++){
 		thread->t_filetable[i] = NULL;
 	}
 
@@ -416,10 +417,9 @@ sys_fork(struct trapframe *tf, int *retval)
 	int s, result;
 
 	newguy = thread_create(curthread->t_name);
-	if (newguy==NULL) {
+	if(newguy==NULL) {
 		return ENOMEM;
 	}
-
 	newguy->t_ppid = curthread->t_pid;
 
 	newguy->t_stack = kmalloc(STACK_SIZE);
@@ -439,11 +439,12 @@ sys_fork(struct trapframe *tf, int *retval)
 		newguy->t_cwd = curthread->t_cwd;
 	}
 
-	// make newguy's fdt
-	// newguy->fdt = fdt_init();
-	fd_init_initial(newguy);
-
 	s = splhigh();
+	if(newguy->t_pid == 0){
+		result = EAGAIN;
+		goto fail;
+	}
+	
 
 	
 	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
@@ -462,6 +463,11 @@ sys_fork(struct trapframe *tf, int *retval)
 
 	result = scheduler_preallocate(numthreads+1);
 	if (result) {
+		goto fail;
+	}
+	
+	result = fd_init_initial(newguy);
+	if(result){
 		goto fail;
 	}
 
@@ -485,6 +491,7 @@ sys_fork(struct trapframe *tf, int *retval)
 	if (newguy->t_cwd != NULL) {
 		VOP_DECREF(newguy->t_cwd);
 	}
+	pid_clear(newguy->t_pid);
 	kfree(newguy->t_stack);
 	kfree(newguy->t_name);
 	kfree(newguy);
@@ -609,15 +616,12 @@ thread_exit(void)
 	pid_clear(curthread->t_pid);
 
 	// file descriptor free
-        int i;
-        for (i = 0; i <= MAX_FD; i++)
-        {
-                if(curthread->t_filetable[i] != NULL){
-                        fd_destroy(curthread->t_filetable[i]);
-                }
-        }
-
-
+	int i;
+	for (i = 0; i <= MAX_FD; i++){
+		if(curthread->t_filetable[i] != NULL){
+			fd_destroy(curthread->t_filetable[i]);
+		}
+	}
 	#endif /* OPT_A2 */
 
 	splhigh();
