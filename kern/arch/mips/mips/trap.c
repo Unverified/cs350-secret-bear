@@ -7,13 +7,14 @@
 #include <vm.h>
 #include <thread.h>
 #include <curthread.h>
+#include <syscall.h>
+
+#include "opt-A2.h"
 
 extern u_int32_t curkstack;
 
 /* in exception.S */
 extern void asm_usermode(struct trapframe *tf);
-
-extern int sys__exit(int exitcode);
 
 /* Names for trap codes */
 #define NTRAPCODES 13
@@ -44,12 +45,14 @@ kill_curthread(u_int32_t epc, unsigned code, u_int32_t vaddr)
 	kprintf("Fatal user mode trap %u (%s, epc 0x%x, vaddr 0x%x)\n",
 		code, trapcodenames[code], epc, vaddr);
 
-
+	#if OPT_A2
 	sys__exit(code);
+	#else
 	/*
 	 * You will probably want to change this.
 	 */
-	//panic("I don't know how to handle this\n");
+	panic("I don't know how to handle this\n");
+	#endif /* OPT_A2 */
 }
 
 /*

@@ -1,7 +1,7 @@
 #ifndef _SYSCALL_H_
 #define _SYSCALL_H_
-#include "opt-A2.h"
 #include <machine/trapframe.h>
+#include "opt-A2.h"
 /*
  * Prototypes for IN-KERNEL entry points for system call implementations.
  */

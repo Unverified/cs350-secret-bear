@@ -53,33 +53,30 @@ sys_open(const_userptr_t filename, int flags, int *retval)
 			break;
 		}
 	}
-
 	if (fd == -1) {
 		return EMFILE;	// fd table full!
 	}
-	
-	else {		// actually open file
-		k_fname = kmalloc(sizeof(char)*NAME_MAX);
-		if(k_fname == NULL){
-			return ENOMEM;
-		}
-		size_t size;
-		result = copyinstr(filename, k_fname, sizeof(char)*NAME_MAX, &size);
-		if(result){
-			goto open_err;
-		}
-		result = vfs_open(k_fname, flags, &v_open);		
-		if (result) {	
-			goto open_err;		
-		}
-		result = fd_init(k_fname, v_open, flags, &(curthread->t_filetable[fd]));
-		if(result){
-			vfs_close(v_open);
-			goto open_err;
-		}
+
+	k_fname = kmalloc(sizeof(char)*NAME_MAX);
+	if(k_fname == NULL){
+		return ENOMEM;
+	}
+	size_t size;
+	result = copyinstr(filename, k_fname, sizeof(char)*NAME_MAX, &size);
+	if(result){
+		goto open_err;
+	}
+	result = vfs_open(k_fname, flags, &v_open);		
+	if (result) {	
+		goto open_err;		
+	}
+	result = fd_init(k_fname, v_open, flags, &(curthread->t_filetable[fd]));
+	if(result){
+		vfs_close(v_open);
+		goto open_err;
+	}
 		
 		*retval = result;
-	}	
 	
 	return 0;
 	
@@ -111,6 +108,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
+
 	if(data == NULL){
 		return EFAULT;
 	}
@@ -122,6 +120,10 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	
 	struct uio uio;
 	struct fd *des  = curthread->t_filetable[fd];	
+	if(des->flags != O_RDWR && des->flags != O_RDONLY){
+		return EINVAL;
+	}
+	
 	mk_kuio(&uio, k_data, size, des->offset, UIO_READ);
 	
 	int result = VOP_READ(des->vnode, &uio);
@@ -163,7 +165,10 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	}
 	
 	struct uio uio;
-	struct fd *des = curthread->t_filetable[fd];
+	struct fd *des = curthread->t_filetable[fd];	
+	if(des->flags != O_RDWR && des->flags != O_WRONLY){
+		return EINVAL;
+	}
 	mk_kuio(&uio, k_data, size, des->offset, UIO_WRITE);
 
 	//write to the device, record if there is an error
