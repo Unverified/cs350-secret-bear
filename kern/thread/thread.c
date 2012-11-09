@@ -630,8 +630,8 @@ thread_exit(void)
     for (i = 0; i <= MAX_FD; i++)
     {
     //        if(curthread->t_filetable[i] != NULL){
-    //                fd_destroy(curthread->t_filetable[i]);
-    //        }
+     //               fd_destroy(curthread->t_filetable[i]);
+      //      }
 	}
 	#endif /* OPT_A2 */
 

@@ -20,6 +20,9 @@ Implementation of all file related system calls:
 #include <uio.h>
 #include <vnode.h>
 #include <kern/limits.h>
+#include <synch.h>
+
+static struct lock * fd_mutex;
 
 static
 int
@@ -44,9 +47,8 @@ sys_open(const_userptr_t filename, int flags, int *retval)
 	char *k_fname;
 	struct vnode * v_open;
 
-
 	// find next free fd...
-	for (i = 0; i <= MAX_FD; i++)
+	for (i = 3; i <= MAX_FD; i++)
 	{
 		if (curthread->t_filetable[i] == NULL) {
 			fd = i;
@@ -76,7 +78,7 @@ sys_open(const_userptr_t filename, int flags, int *retval)
 		goto open_err;
 	}
 		
-		*retval = result;
+		*retval = fd;
 	
 	return 0;
 	
@@ -123,10 +125,11 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	if(des->flags != O_RDWR && des->flags != O_RDONLY){
 		return EINVAL;
 	}
-	
+
 	mk_kuio(&uio, k_data, size, des->offset, UIO_READ);
-	
+
 	int result = VOP_READ(des->vnode, &uio);
+	
 	if(result){
 		kfree(k_data);
 		return result;
@@ -137,7 +140,8 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		kfree(k_data);
 		return result;	
 	}
-	
+
+	//kfree(k_data);	
 	des->offset = uio.uio_offset;
 	*retval = size - (int)uio.uio_resid;
 	return 0;
@@ -198,7 +202,7 @@ fd_init(char *name, struct vnode *node, int flag, struct fd **retval)
 	new_fd->vnode = node;
 	new_fd->offset = 0;
 	new_fd->flags = flag;
-	
+		
 	*retval = new_fd;
 	return 0;
 }
@@ -279,7 +283,7 @@ fd_init_initial(struct thread* t)
 		t->t_filetable[1] = NULL;
 		return ret;
 	}
-	
+
 	return 0;
 }
 

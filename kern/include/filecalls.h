@@ -20,6 +20,7 @@ Note the special entries in the table:
 #include <uio.h>
 #include <array.h>
 #include <kern/limits.h>
+#include <synch.h>
 
 //cyclic deps are fun
 struct thread;
