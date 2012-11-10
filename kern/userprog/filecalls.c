@@ -209,7 +209,7 @@ static int initcount = 0;
 static int destcount = 0;
 
 int
-fd_init(char *name, int flag, struct fd **retval)
+fd_init(char *fname, int flag, struct fd **retval)
 {
 	
 	int ret;
@@ -219,20 +219,24 @@ fd_init(char *name, int flag, struct fd **retval)
 		return ENOMEM;
 	}
 	
+	char * name = kstrdup(fname);
+	
 	struct vnode *vnode;
 	ret = vfs_open(name, flag, &vnode);
 	if(ret){
+		kfree(name);
 		return ret;
 	}
 	
 	initcount++;
 	
-	new_fd->filename = name;
+	new_fd->filename = fname;
 	new_fd->vnode = vnode;
 	new_fd->offset = 0;
 	new_fd->flags = flag;
 		
 	*retval = new_fd;
+	kfree(name);
 	return 0;
 }
 

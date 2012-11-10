@@ -375,15 +375,9 @@ thread_fork(const char *name,
 	}
 
 	#if OPT_A2
-	// initialize standard fd's
-	result = fd_init_initial(newguy);
-	if(result){
-		goto fail;
-	}
-
 	// copy rest of fd's
 	int i, j; //j only used in case of failiure
-	for (i = 3; i <= MAX_FD; i++)
+	for (i = 0; i <= MAX_FD; i++)
 	{
 		if (curthread->t_filetable[i] != NULL) {
 			result = fd_copy(curthread->t_filetable[i], &(newguy->t_filetable[i]));
@@ -397,7 +391,7 @@ thread_fork(const char *name,
 	/* Make the new thread runnable */
 	result = make_runnable(newguy);
 	if (result != 0) {
-		goto fail;
+		goto failfd;
 	}
 
 	/*
@@ -502,16 +496,10 @@ sys_fork(struct trapframe *tf, int *retval)
 	if (result) {
 		goto fail;
 	}
-	
-	// initialize standard fd's
-	result = fd_init_initial(newguy);
-	if(result){
-		goto fail;
-	}
 
 	// copy rest of fd's
 	int i, j; //j only used in case of failiure
-	for (i = 3; i <= MAX_FD; i++)
+	for (i = 0; i <= MAX_FD; i++)
 	{
 		if (curthread->t_filetable[i] != NULL) {
 			result = fd_copy(curthread->t_filetable[i], &(newguy->t_filetable[i]));
