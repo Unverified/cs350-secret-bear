@@ -21,6 +21,7 @@ Implementation of all file related system calls:
 #include <vnode.h>
 #include <kern/limits.h>
 #include <synch.h>
+#include <addrspace.h>
 
 static
 int
@@ -112,7 +113,11 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 
-	if(data == NULL || (void*)data >= (void*)0x80000000){
+	if((data == NULL || (void*)data >= (void*)0x80000000) ||
+		((void*)data >= (void*)curthread->t_vmspace->as_vbase1 &&
+		(void*)data <= ((void*)curthread->t_vmspace->as_vbase1 + 
+			(curthread->t_vmspace->as_npages1 << 3)))) 
+	{
 		return EFAULT;
 	}
 
@@ -163,8 +168,7 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 
 	// data buffer invalid
 	if ((data == NULL) || 
-		((void*)data >= (void*)0x80000000) ||
-		((void*)data >= (void*)0x00400000 && (void*)data <= (void*)0x00401a0c)) {	
+		((void*)data >= (void*)0x80000000)) {
 		return EFAULT;
 	}	
 
