@@ -141,7 +141,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return result;	
 	}
 
-	//kfree(k_data);	
+	kfree(k_data);	
 	des->offset = uio.uio_offset;
 	*retval = size - (int)uio.uio_resid;
 	return 0;
@@ -185,7 +185,7 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	//update offset and return value, success!
 	kfree(k_data);
 	des->offset = uio.uio_offset;
-	*retval = (int)uio.uio_resid;
+	*retval = size - (int)uio.uio_resid;
 	
 	return 0;
 }
