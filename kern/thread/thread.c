@@ -318,6 +318,17 @@ thread_fork(const char *name,
 		return ENOMEM;
 	}
 
+	#if OPT_A2
+	newguy->t_pid = pid_getnext(newguy);
+	if(newguy->t_pid == 0){
+		kfree(newguy->t_name);
+		kfree(newguy);
+		return EAGAIN;
+	}
+	
+	newguy->t_ppid = curthread->t_pid;
+	#endif /* OPT_A2 */
+
 	/* Allocate a stack */
 	newguy->t_stack = kmalloc(STACK_SIZE);
 	if (newguy->t_stack==NULL) {
@@ -363,6 +374,26 @@ thread_fork(const char *name,
 		goto fail;
 	}
 
+	#if OPT_A2
+	// initialize standard fd's
+	result = fd_init_initial(newguy);
+	if(result){
+		goto fail;
+	}
+
+	// copy rest of fd's
+	int i, j; //j only used in case of failiure
+	for (i = 3; i <= MAX_FD; i++)
+	{
+		if (curthread->t_filetable[i] != NULL) {
+			result = fd_copy(curthread->t_filetable[i], &(newguy->t_filetable[i]));
+		}
+		if (result) {
+			goto failfd;
+		}
+	}
+	#endif /* OPT_A2 */
+
 	/* Make the new thread runnable */
 	result = make_runnable(newguy);
 	if (result != 0) {
@@ -392,6 +423,12 @@ thread_fork(const char *name,
 
 	return 0;
 
+ failfd:
+	#if OPT_A2
+	for(j=0; j < i; j++){
+		fd_destroy(newguy->t_filetable[i]);
+	}
+	#endif /* OPT_A2 */
  fail:
 	splx(s);
 	if (newguy->t_cwd != NULL) {

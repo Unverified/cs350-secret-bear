@@ -22,8 +22,6 @@ Implementation of all file related system calls:
 #include <kern/limits.h>
 #include <synch.h>
 
-static struct lock * fd_mutex;
-
 static
 int
 fd_check_valid(int fd)
@@ -111,7 +109,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 
-	if(data == NULL || data >= 0x80000000){
+	if(data == NULL || (void*)data >= (void*)0x80000000){
 		return EFAULT;
 	}
 
@@ -159,9 +157,8 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 
 	// data buffer invalid
 	if ((data == NULL) || 
-		(data >= 0x80000000) ||
-		(data <= 0x0) ||
-		(data >= 0x00400000 && data <= 0x00401a0c)) {	
+		((void*)data >= (void*)0x80000000) ||
+		((void*)data >= (void*)0x00400000 && (void*)data <= (void*)0x00401a0c)) {	
 		return EFAULT;
 	}	
 
