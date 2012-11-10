@@ -40,20 +40,18 @@ fd_check_valid(int fd)
 int
 sys_open(const_userptr_t filename, int flags, int *retval)
 {
-	int fd = -1;
+	size_t size;
 	int result, i;
 	char *k_fname;
-	struct vnode * v_open;
 
-	// find next free fd...
-	for (i = 3; i <= MAX_FD; i++)
+	// find next free fd, 0-2 is saved...
+	for (i = 3; i < MAX_FD; i++)
 	{
 		if (curthread->t_filetable[i] == NULL) {
-			fd = i;
 			break;
 		}
 	}
-	if (fd == -1) {
+	if (i == MAX_FD) {
 		return EMFILE;	// fd table full!
 	}
 
@@ -61,23 +59,18 @@ sys_open(const_userptr_t filename, int flags, int *retval)
 	if(k_fname == NULL){
 		return ENOMEM;
 	}
-	size_t size;
+	
 	result = copyinstr(filename, k_fname, sizeof(char)*NAME_MAX, &size);
 	if(result){
 		goto open_err;
 	}
-	result = vfs_open(k_fname, flags, &v_open);		
-	if (result) {	
-		goto open_err;		
-	}
-	result = fd_init(k_fname, v_open, flags, &(curthread->t_filetable[fd]));
+
+	result = fd_init(k_fname, flags, &(curthread->t_filetable[i]));
 	if(result){
-		vfs_close(v_open);
 		goto open_err;
 	}
 		
-		*retval = fd;
-	
+	*retval = i;
 	return 0;
 	
   open_err:
@@ -196,15 +189,18 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 }
 
 int
-fd_init(char *name, struct vnode *node, int flag, struct fd **retval)
+fd_init(char *name, int flag, struct fd **retval)
 {
 	struct fd* new_fd = kmalloc(sizeof(struct fd));
 	if(new_fd == NULL){
 		return ENOMEM;
 	}
 	
+	struct vnode *vnode;
+	vfs_open(name, flag, &vnode);
+	
 	new_fd->filename = name;
-	new_fd->vnode = node;
+	new_fd->vnode = vnode;
 	new_fd->offset = 0;
 	new_fd->flags = flag;
 		
@@ -217,79 +213,54 @@ fd_init_initial(struct thread* t)
 {
 	int ret;
 	
-	// setup stdin
-	struct vnode *stin; 
-	char *stin_n = kstrdup("con:");
-	if(stin_n == NULL){
+	// setup standard input
+	char *stdin = kstrdup("con:");
+	if(stdin == NULL){
 		return ENOMEM;
 	}
-	ret = vfs_open(stin_n, O_RDONLY, &stin);
+
+	ret = fd_init(stdin, O_RDONLY, &(t->t_filetable[0]));
 	if(ret){
-		kfree(stin_n);
-		return ret;
-	}
-	ret = fd_init(stin_n, stin, O_RDONLY, &(t->t_filetable[0]));
-	if(ret){
-		kfree(stin_n);
-		vfs_close(stin);
+		kfree(stdin);
 		return ret;
 	}
 
-	// setup stout
-	struct vnode *stout;
-	char *stout_n = kstrdup("con:");
-	if(stout_n == NULL){
-		fd_destroy(t->t_filetable[0]);
-		t->t_filetable[0] = NULL;
-		return ENOMEM;
-	}
-	ret = vfs_open(stout_n, O_WRONLY, &stout);
-	if(ret){
-		kfree(stout_n);
-		fd_destroy(t->t_filetable[0]);
-		t->t_filetable[0] = NULL;
-		return ret;
-	}
-	ret = fd_init(stout_n, stout, O_WRONLY, &(t->t_filetable[1]));
-	if(ret){
-		kfree(stout_n);
-		vfs_close(stout);
-		fd_destroy(t->t_filetable[0]);
-		t->t_filetable[0] = NULL;
-		return ret;
+	// setup standard out
+	char *stdout = kstrdup("con:");
+	if(stdout == NULL){
+		ret = ENOMEM;
+		goto fail0;
 	}
 	
-	// setup sterr
-	struct vnode *sterr;
-	char *sterr_n = kstrdup("con:");
-	if(sterr_n == NULL){
-		fd_destroy(t->t_filetable[0]);
-		fd_destroy(t->t_filetable[1]);
-		t->t_filetable[0] = NULL;
-		t->t_filetable[1] = NULL;
-		return ENOMEM;
-	}
-	ret = vfs_open(sterr_n, O_WRONLY, &sterr);
+	ret = fd_init(stdout, O_WRONLY, &(t->t_filetable[1]));
 	if(ret){
-		kfree(sterr_n);
-		fd_destroy(t->t_filetable[0]);
-		fd_destroy(t->t_filetable[1]);
-		t->t_filetable[0] = NULL;
-		t->t_filetable[1] = NULL;
-		return ret;
+		kfree(stdout);
+		goto fail0;
 	}
-	ret = fd_init(sterr_n, sterr, O_WRONLY, &(t->t_filetable[2]));
+	
+	// setup standard error
+	char *stderr = kstrdup("con:");
+	if(stderr == NULL){
+		ret = ENOMEM;
+		goto fail1;
+	}
+
+	ret = fd_init(stderr, O_WRONLY, &(t->t_filetable[2]));
 	if(ret){
-		kfree(sterr_n);
-		vfs_close(sterr);
-		fd_destroy(t->t_filetable[0]);
-		fd_destroy(t->t_filetable[1]);
-		t->t_filetable[0] = NULL;
-		t->t_filetable[1] = NULL;
-		return ret;
+		kfree(stderr);
+		goto fail1;
 	}
 
 	return 0;
+	
+  fail1:
+	fd_destroy(t->t_filetable[1]);
+	t->t_filetable[1] = NULL;
+	
+  fail0:
+	fd_destroy(t->t_filetable[0]);
+	t->t_filetable[0] = NULL;
+	return ret;
 }
 
 int
@@ -303,14 +274,7 @@ fd_copy(struct fd *master, struct fd **retval)
 		return ENOMEM;
 	}
 	
-	struct vnode *copy_node;
-	ret = vfs_open(name, master->flags, &copy_node);
-	if(ret){
-		kfree(name);
-		return ret;
-	}
-	
-	ret = fd_init(name, copy_node, master->flags, &copy);
+	ret = fd_init(name, master->flags, &copy);
 	if(ret) {
 		kfree(name);
 		return ret;
@@ -324,8 +288,17 @@ fd_copy(struct fd *master, struct fd **retval)
 void
 fd_destroy(struct fd *des)
 {
-	kfree(des->filename);
-	vfs_close(des->vnode);
+	if(des == NULL){ return; }
+	
+	if(des->filename != NULL){
+		kfree(des->filename);
+		des->filename = NULL;
+	}
+	
+	if(des->vnode != NULL){
+		vfs_close(des->vnode);
+		des->vnode = NULL;
+	}
 	
 	kfree(des);
 }
