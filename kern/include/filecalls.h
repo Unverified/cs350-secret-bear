@@ -44,7 +44,7 @@ struct fd{
 // Returns -1 on error
 // int fdt_add (struct fdt * fdt, const char * filename, struct vnode * vnode, int flags);
 
-int fd_init(char *name, struct vnode *node, int flag, struct fd **retval);
+int fd_init(char *name, int flag, struct fd **retval);
 
 int fd_init_initial(struct thread * t);
 
