@@ -667,9 +667,8 @@ thread_exit(void)
     int i;
     for (i = 0; i <= MAX_FD; i++)
     {
-    //        if(curthread->t_filetable[i] != NULL){
-     //               fd_destroy(curthread->t_filetable[i]);
-      //      }
+		fd_destroy(curthread->t_filetable[i]);
+		curthread->t_filetable[i] = 0;
 	}
 	#endif /* OPT_A2 */
 

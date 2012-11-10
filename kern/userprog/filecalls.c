@@ -188,16 +188,27 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	return 0;
 }
 
+static int initcount = 0;
+static int destcount = 0;
+
 int
 fd_init(char *name, int flag, struct fd **retval)
 {
+	
+	int ret;
 	struct fd* new_fd = kmalloc(sizeof(struct fd));
+	
 	if(new_fd == NULL){
 		return ENOMEM;
 	}
 	
 	struct vnode *vnode;
-	vfs_open(name, flag, &vnode);
+	ret = vfs_open(name, flag, &vnode);
+	if(ret){
+		return ret;
+	}
+	
+	initcount++;
 	
 	new_fd->filename = name;
 	new_fd->vnode = vnode;
@@ -268,6 +279,11 @@ fd_copy(struct fd *master, struct fd **retval)
 {
 	int ret;
 	struct fd *copy;
+	
+	if(master == NULL){
+		*retval = NULL;
+		return 0;
+	}
 
 	char *name = kstrdup(master->filename);
 	if(name == NULL){
@@ -290,6 +306,9 @@ fd_destroy(struct fd *des)
 {
 	if(des == NULL){ return; }
 	
+	destcount++;
+	kprintf("inc count: %d dest count %d\n", initcount, destcount);
+
 	if(des->filename != NULL){
 		kfree(des->filename);
 		des->filename = NULL;
