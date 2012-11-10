@@ -205,9 +205,6 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	return 0;
 }
 
-static int initcount = 0;
-static int destcount = 0;
-
 int
 fd_init(char *fname, int flag, struct fd **retval)
 {
@@ -227,8 +224,6 @@ fd_init(char *fname, int flag, struct fd **retval)
 		kfree(name);
 		return ret;
 	}
-	
-	initcount++;
 	
 	new_fd->filename = fname;
 	new_fd->vnode = vnode;
@@ -326,9 +321,6 @@ void
 fd_destroy(struct fd *des)
 {
 	if(des == NULL){ return; }
-	
-	destcount++;
-	kprintf("inc count: %d dest count %d\n", initcount, destcount);
 
 	if(des->filename != NULL){
 		kfree(des->filename);

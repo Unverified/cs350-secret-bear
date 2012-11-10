@@ -381,9 +381,9 @@ thread_fork(const char *name,
 	{
 		if (curthread->t_filetable[i] != NULL) {
 			result = fd_copy(curthread->t_filetable[i], &(newguy->t_filetable[i]));
-		}
-		if (result) {
-			goto failfd;
+			if (result) {
+				goto failfd;
+			}
 		}
 	}
 	#endif /* OPT_A2 */
@@ -499,13 +499,14 @@ sys_fork(struct trapframe *tf, int *retval)
 
 	// copy rest of fd's
 	int i, j; //j only used in case of failiure
-	for (i = 0; i <= MAX_FD; i++)
+	for (i = 0; i < MAX_FD; i++)
 	{
 		if (curthread->t_filetable[i] != NULL) {
 			result = fd_copy(curthread->t_filetable[i], &(newguy->t_filetable[i]));
-		}
-		if (result) {
-			goto failfd;
+			
+			if (result) {
+				goto failfd;
+			}
 		}
 	}
 
