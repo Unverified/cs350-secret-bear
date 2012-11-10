@@ -653,10 +653,11 @@ thread_exit(void)
 	pid_clear(curthread->t_pid);
 	// file descriptor free
     int i;
-    for (i = 0; i <= MAX_FD; i++)
-    {
-		fd_destroy(curthread->t_filetable[i]);
-		curthread->t_filetable[i] = 0;
+    for (i = 0; i < MAX_FD; i++){
+		if(curthread->t_filetable[i] != NULL){
+			fd_destroy(curthread->t_filetable[i]);
+			curthread->t_filetable[i] = NULL;
+		}
 	}
 	#endif /* OPT_A2 */
 
