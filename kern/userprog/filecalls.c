@@ -20,6 +20,9 @@ Implementation of all file related system calls:
 #include <uio.h>
 #include <vnode.h>
 #include <kern/limits.h>
+#include <synch.h>
+
+static struct lock * fd_mutex;
 
 static
 int
@@ -44,42 +47,38 @@ sys_open(const_userptr_t filename, int flags, int *retval)
 	char *k_fname;
 	struct vnode * v_open;
 
-
 	// find next free fd...
-	for (i = 0; i <= MAX_FD; i++)
+	for (i = 3; i <= MAX_FD; i++)
 	{
 		if (curthread->t_filetable[i] == NULL) {
 			fd = i;
 			break;
 		}
 	}
-
 	if (fd == -1) {
 		return EMFILE;	// fd table full!
 	}
-	
-	else {		// actually open file
-		k_fname = kmalloc(sizeof(char)*NAME_MAX);
-		if(k_fname == NULL){
-			return ENOMEM;
-		}
-		size_t size;
-		result = copyinstr(filename, k_fname, sizeof(char)*NAME_MAX, &size);
-		if(result){
-			goto open_err;
-		}
-		result = vfs_open(k_fname, flags, &v_open);		
-		if (result) {	
-			goto open_err;		
-		}
-		result = fd_init(k_fname, v_open, flags, &(curthread->t_filetable[fd]));
-		if(result){
-			vfs_close(v_open);
-			goto open_err;
-		}
+
+	k_fname = kmalloc(sizeof(char)*NAME_MAX);
+	if(k_fname == NULL){
+		return ENOMEM;
+	}
+	size_t size;
+	result = copyinstr(filename, k_fname, sizeof(char)*NAME_MAX, &size);
+	if(result){
+		goto open_err;
+	}
+	result = vfs_open(k_fname, flags, &v_open);		
+	if (result) {	
+		goto open_err;		
+	}
+	result = fd_init(k_fname, v_open, flags, &(curthread->t_filetable[fd]));
+	if(result){
+		vfs_close(v_open);
+		goto open_err;
+	}
 		
-		*retval = result;
-	}	
+		*retval = fd;
 	
 	return 0;
 	
@@ -111,6 +110,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
+
 	if(data == NULL){
 		return EFAULT;
 	}
@@ -122,9 +122,14 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	
 	struct uio uio;
 	struct fd *des  = curthread->t_filetable[fd];	
+	if(des->flags != O_RDWR && des->flags != O_RDONLY){
+		return EINVAL;
+	}
+
 	mk_kuio(&uio, k_data, size, des->offset, UIO_READ);
-	
+
 	int result = VOP_READ(des->vnode, &uio);
+	
 	if(result){
 		kfree(k_data);
 		return result;
@@ -135,7 +140,8 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		kfree(k_data);
 		return result;	
 	}
-	
+
+	kfree(k_data);	
 	des->offset = uio.uio_offset;
 	*retval = size - (int)uio.uio_resid;
 	return 0;
@@ -163,7 +169,10 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	}
 	
 	struct uio uio;
-	struct fd *des = curthread->t_filetable[fd];
+	struct fd *des = curthread->t_filetable[fd];	
+	if(des->flags != O_RDWR && des->flags != O_WRONLY){
+		return EINVAL;
+	}
 	mk_kuio(&uio, k_data, size, des->offset, UIO_WRITE);
 
 	//write to the device, record if there is an error
@@ -176,7 +185,7 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	//update offset and return value, success!
 	kfree(k_data);
 	des->offset = uio.uio_offset;
-	*retval = (int)uio.uio_resid;
+	*retval = size - (int)uio.uio_resid;
 	
 	return 0;
 }
@@ -193,7 +202,7 @@ fd_init(char *name, struct vnode *node, int flag, struct fd **retval)
 	new_fd->vnode = node;
 	new_fd->offset = 0;
 	new_fd->flags = flag;
-	
+		
 	*retval = new_fd;
 	return 0;
 }
@@ -274,7 +283,7 @@ fd_init_initial(struct thread* t)
 		t->t_filetable[1] = NULL;
 		return ret;
 	}
-	
+
 	return 0;
 }
 

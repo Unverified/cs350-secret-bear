@@ -445,9 +445,9 @@ sys_fork(struct trapframe *tf, int *retval)
 
 	s = splhigh();
 	
-	result = memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
+	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
 	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*)md_forkentry);
-
+	
 	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
 	if(result) {
 		goto fail;
@@ -466,21 +466,38 @@ sys_fork(struct trapframe *tf, int *retval)
 		goto fail;
 	}
 	
+	// initialize standard fd's
 	result = fd_init_initial(newguy);
 	if(result){
 		goto fail;
 	}
 
+	// copy rest of fd's
+	int i, j; //j only used in case of failiure
+	for (i = 3; i <= MAX_FD; i++)
+	{
+		if (curthread->t_filetable[i] != NULL) {
+			result = fd_copy(curthread->t_filetable[i], &(newguy->t_filetable[i]));
+		}
+		if (result) {
+			goto failfd;
+		}
+	}
+
 	result = make_runnable(newguy);
 	if (result != 0) {
-		goto fail;
+		goto failfd;
 	}
 	numthreads++;
 
 	*retval = newguy->t_pid;
 	splx(s);
 	return 0;
-
+	
+ failfd:
+	for(j=0; j < i; j++){
+		fd_destroy(newguy->t_filetable[i]);
+	}
  fail:
 	splx(s);
 	if (newguy->t_cwd != NULL) {
@@ -614,8 +631,8 @@ thread_exit(void)
     for (i = 0; i <= MAX_FD; i++)
     {
     //        if(curthread->t_filetable[i] != NULL){
-    //                fd_destroy(curthread->t_filetable[i]);
-    //        }
+     //               fd_destroy(curthread->t_filetable[i]);
+      //      }
 	}
 	#endif /* OPT_A2 */
 
