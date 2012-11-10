@@ -12,7 +12,7 @@
 #include "opt-A2.h"
 
 int
-sys_execv(const_userptr_t *progname, userptr_t *args[])
+sys_execv(const_userptr_t *progname, const_userptr_t *args[])
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
@@ -22,7 +22,7 @@ sys_execv(const_userptr_t *progname, userptr_t *args[])
 	char *k_progname;
 	vaddr_t *addrOfCharPtrs;
 
-	if(progname == NULL || progname >= USERTOP || args == NULL) {
+	if(progname == NULL || (void*)progname >= (void*)USERTOP || args == NULL) {
 		return EFAULT;
 	}
 
@@ -51,7 +51,7 @@ sys_execv(const_userptr_t *progname, userptr_t *args[])
 			goto fail3;
 		}
 
-		size_t size = strlen(args[i]) + 1;
+		size_t size = strlen((char*)args[i]) + 1;
 
 		char *k_str = kmalloc(size);
 		result = copyinstr(args[i], k_str, size, &actual);
