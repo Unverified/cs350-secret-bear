@@ -111,7 +111,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 
-	if(data == NULL){
+	if(data == NULL || data >= 0x80000000){
 		return EFAULT;
 	}
 
@@ -156,7 +156,15 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	if(fd_check_valid(fd)){
 		return EBADF;
 	}
-	
+
+	// data buffer invalid
+	if ((data == NULL) || 
+		(data >= 0x80000000) ||
+		(data <= 0x0) ||
+		(data >= 0x00400000 && data <= 0x00401a0c)) {	
+		return EFAULT;
+	}	
+
 	char *k_data = kmalloc(sizeof(char)*(size));
 	if(k_data == NULL){
 		return ENOMEM;
