@@ -45,6 +45,16 @@ sys_open(const_userptr_t filename, int flags, int *retval)
 	char *k_fname;
 	struct vnode * v_open;
 
+	// bad flag
+	if (flags >= 64 || flags < 0) {  
+		return EINVAL;
+	}
+
+	// bad filename pointer
+	if (filename == NULL) {
+		return EFAULT;
+	}
+
 	// find next free fd...
 	for (i = 3; i <= MAX_FD; i++)
 	{
@@ -120,7 +130,10 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	
 	struct uio uio;
 	struct fd *des  = curthread->t_filetable[fd];	
-	if(des->flags != O_RDWR && des->flags != O_RDONLY){
+	
+	// check flags for read permissions
+	// using bitwise checks
+	if (!(des->flags & O_RDWR) && (des->flags & O_WRONLY)) {
 		return EINVAL;
 	}
 
@@ -175,9 +188,13 @@ sys_write(int fd, const_userptr_t data, size_t size, int *retval)
 	
 	struct uio uio;
 	struct fd *des = curthread->t_filetable[fd];	
-	if(des->flags != O_RDWR && des->flags != O_WRONLY){
+	
+	// check flags for write permissions
+	// using bitwise checks
+	if (!(des->flags & O_RDWR) && !(des->flags & O_WRONLY)) {
 		return EINVAL;
 	}
+
 	mk_kuio(&uio, k_data, size, des->offset, UIO_WRITE);
 
 	//write to the device, record if there is an error
