@@ -419,6 +419,7 @@ sys_fork(struct trapframe *tf, int *retval)
 	
 	newguy->t_ppid = curthread->t_pid;
 	newguy->t_pid = pid_getnext(newguy);
+	//kprintf("forking %d forked %d\n", curthread->t_pid, newguy->t_pid);
 	if(newguy->t_pid == 0){
 		kfree(newguy->t_name);
 		kfree(newguy);

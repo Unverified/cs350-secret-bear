@@ -23,8 +23,38 @@
 }*/
 
 int
+copycheck(const_userptr_t userptr, size_t len, size_t *stoplen)
+{
+	vaddr_t bot, top;
+
+	*stoplen = len;
+
+	bot = (vaddr_t) userptr;
+	top = bot+len-1;
+
+	if (top < bot) {
+		/* addresses wrapped around */
+		return EFAULT;
+	}
+
+	if (bot >= USERTOP) {
+		/* region is within the kernel */
+		return EFAULT;
+	}
+
+	if (top >= USERTOP) {
+		/* region overlaps the kernel. adjust the max length. */
+		*stoplen = USERTOP - bot;
+	}
+
+	return 0;
+}
+
+int
 sys_execv(const_userptr_t *progname, userptr_t *args[])
 {
+	//int test = 0;
+//kprintf("HERE%d\n", test++);
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
 	int result;
@@ -56,22 +86,44 @@ sys_execv(const_userptr_t *progname, userptr_t *args[])
 		if(args[i] == NULL)
 			break;
 
+		size_t actual;
+		char copytest[1];
+		result = copyin(args[i], copytest, 1);
+		if(result) {
+			return result;
+		}
+
+		size_t size = strlen(args[i]) + 1;
+
+
+		char *k_str = kmalloc(size);
+		result = copyinstr(args[i], k_str, size, &actual);
+		k_args[i] = k_str;
+
+		if(result) {
+			for( ; i>=0; i--){
+				kfree(k_args[i]);
+			}
+			return result;
+		}
 		nargs++;
 	}
 
 	//need to have atleast the prog name in args
 	if(nargs < 1) {
+		//kprintf("HEREerr3\n");
 		return EFAULT;
 	}
 	//put all the args onto kernal space
+	/*kprintf("pid: %d %d\n", curthread->t_pid, nargs);
 	for(i=0;i<nargs;i++) {
 		char test[1];
 		result = copyin(k_args[i], test, 1);
 		if(result) {
+			kprintf("pid: %d err k_args[%d] %p\n", curthread->t_pid, i, k_args[i]);
 			for( i=i-1; i>=0; i--){
 				kfree(k_args[i]);
 			}
-
 			return result;
 		}
 		
@@ -79,12 +131,13 @@ sys_execv(const_userptr_t *progname, userptr_t *args[])
 		size_t actual;
 		result = copyinstr(k_args[i], k_str, strlen(k_args[i]), &actual);
 		k_args[i] = k_str;
-	}
+	}*/
 
 
 	/* Open the file. */
 	result = vfs_open(k_progname, O_RDONLY, &v);
 	if (result) {
+		//kprintf("HEREerr5\n");
 		return result;
 	}
 

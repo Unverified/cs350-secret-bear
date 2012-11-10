@@ -30,6 +30,7 @@ sys__exit(int exitcode)
 {
 	lock_acquire(mutex);
 	
+	//kprintf("exit pid: %d\n", curthread->t_pid);
 	pid_setexitcode(curthread->t_pid, exitcode);
 	cv_broadcast(curthread->t_cvwaitpid, mutex);
 
@@ -89,7 +90,9 @@ sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 		return EINVAL;
 	}
 
+	//kprintf("%d waitpid pid: %d\n", curthread->t_pid, pid);
 	cv_wait(thread->t_cvwaitpid, mutex);
+	//kprintf("%d got pid: %d\n", curthread->t_pid, pid);
 
 	exitcode = pid_getexitcode(pid);
 
