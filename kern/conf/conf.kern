@@ -464,6 +464,11 @@ defoption A2
 # UW For A3 use the stats tracking code provided
 defoption A3
    file    vm/uw-vmstats.c
+   file    vm/coremap.c
+   file    vm/pt.c
+   file    vm/segments.c
+   file    vm/swapfile.c
+   file    vm/vm_tlb.c
 defoption A4
 defoption A5
 
