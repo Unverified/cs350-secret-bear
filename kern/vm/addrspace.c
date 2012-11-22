@@ -22,8 +22,6 @@ struct addrspace *active_as = NULL;
 
 /******** Functions copied from dumb_vm **********/
 
-#define DUMBVM_STACKPAGES    12
-
 void
 vm_bootstrap(void)
 {
@@ -158,7 +156,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 
 	memmove((void *)PADDR_TO_KVADDR(new->as_stackpbase),
 		(const void *)PADDR_TO_KVADDR(old->as_stackpbase),
-		DUMBVM_STACKPAGES*PAGE_SIZE);
+		STACKPAGES*PAGE_SIZE);
 	
 	#else
 
@@ -297,7 +295,7 @@ as_prepare_load(struct addrspace *as)
 		return ENOMEM;
 	}
 
-	as->as_stackpbase = getppages(DUMBVM_STACKPAGES);
+	as->as_stackpbase = getppages(STACKPAGES);
 	if (as->as_stackpbase == 0) {
 		return ENOMEM;
 	}

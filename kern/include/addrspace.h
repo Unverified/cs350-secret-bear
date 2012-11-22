@@ -13,6 +13,8 @@ struct vnode;
  * You write this.
  */
 
+#define STACKPAGES    12
+
 struct addrspace {
 #if OPT_DUMBVM
 	vaddr_t as_vbase1;
