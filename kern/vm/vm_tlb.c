@@ -11,8 +11,6 @@
 #include <vm.h>
 #include <uw-vmstats.h>
 
-#define DUMBVM_STACKPAGES    12
-
 static unsigned int m_next_victim = 0;
 
 static int tlb_get_rr_victim() {
@@ -69,7 +67,7 @@ int tlb_write(vaddr_t faultaddress) {
 	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
 	vbase2 = as->as_vbase2;
 	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
-	stackbase = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
+	stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	stacktop = USERSTACK;
 
 	writeable = TLBLO_DIRTY;
