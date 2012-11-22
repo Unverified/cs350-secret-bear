@@ -18,7 +18,9 @@
 #include <version.h>
 #include <pid.h>
 #include <filecalls.h>
+#include <uw-vmstats.h>
 #include "opt-A0.h"
+#include "opt-A3.h"
 
 /*
  * These two pieces of data are maintained by the makefiles and build system.
@@ -106,6 +108,10 @@ boot(void)
 		menu->t_pid = pid_getnext(menu);
 		fd_init_initial(menu);
 	#endif
+
+	#if OPT_A3
+	vmstats_init();
+	#endif
 }
 
 /*
@@ -117,6 +123,10 @@ shutdown(void)
 {
 
 	kprintf("Shutting down.\n");
+
+	#if OPT_A3
+	vmstats_print();
+	#endif
 	
 	vfs_clearbootfs();
 	vfs_clearcurdir();
