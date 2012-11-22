@@ -75,7 +75,9 @@ int tlb_write(vaddr_t faultaddress) {
 	writeable = TLBLO_DIRTY;
 
 	if (faultaddress >= vbase1 && faultaddress < vtop1) {
-		//writeable = 0;
+		if(!as->t_loadingexe)
+			writeable = 0;
+
 		paddr = (faultaddress - vbase1) + as->as_pbase1;
 	}
 	else if (faultaddress >= vbase2 && faultaddress < vtop2) {
@@ -115,9 +117,33 @@ int tlb_write(vaddr_t faultaddress) {
 	elo = paddr | writeable | TLBLO_VALID;
 	TLB_Write(ehi, elo, i);
 
-	//vmstats_inc(0);
+	vmstats_inc(0);
 
 	return 0;
+}
+
+/* 
+ * After an executable is loaded in the users address space, all writes 
+ * to the text segment should not be allowed 
+*/
+void tlb_set_text_read_only(struct addrspace *as) {
+	vaddr_t vbase1, vtop1;
+	paddr_t paddr;
+	u_int32_t ehi, elo;
+	int i;
+
+	vbase1 = as->as_vbase1;
+	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
+
+	for (i=0; i<NUM_TLB; i++) {
+		TLB_Read(&ehi, &elo, i);
+		if (elo & TLBLO_VALID && ehi >= vbase1 && ehi < vtop1) {
+			// I dont know how to just set the dirty bit to 0 so im doing it the hard way
+			paddr = (ehi - vbase1) + as->as_pbase1;
+			elo = paddr | TLBLO_VALID;
+			TLB_Write(ehi, elo, i);
+		}
+	}
 }
 
 void tlb_invalidate() {

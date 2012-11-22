@@ -74,13 +74,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	faultaddress &= PAGE_FRAME;
 
-	DEBUG(DB_VM, "dumbvm: fault: 0x%x\n", faultaddress);
+	DEBUG(DB_VM, "vm: fault: 0x%x\n", faultaddress);
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
-		/* We always create pages read-write, so we can't get this */
-		panic("dumbvm: got VM_FAULT_READONLY %p\n", faultaddress);
+		//probs have to put a diff code
+		sys__exit(EFAULT);
 	    case VM_FAULT_READ:
+		break;
 	    case VM_FAULT_WRITE:
 		break;
 	    default:
@@ -278,6 +279,8 @@ as_prepare_load(struct addrspace *as)
 {
 	#if OPT_A3
 
+	as->t_loadingexe = 1;
+
 	/* TODO: Implement better vm */
 
 	assert(as->as_pbase1 == 0);
@@ -314,11 +317,10 @@ as_complete_load(struct addrspace *as)
 {
 	#if OPT_A3
 
-	/*
-	 * Write this.
-	 */
+	as->t_loadingexe = 0;
+
+	tlb_set_text_read_only(as);
 	
-	(void)as;
 	return 0;
 
 	#else 
