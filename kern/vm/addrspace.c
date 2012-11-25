@@ -6,6 +6,7 @@
 #include <vm_tlb.h>
 #include <thread.h>
 #include <curthread.h>
+#include <pt.h>
 #include "opt-A3.h"
 
 #include <machine/spl.h>
@@ -28,31 +29,20 @@ vm_bootstrap(void)
 	/* Do nothing. */
 }
 
-static
-paddr_t
-getppages(unsigned long npages)
+/* Allocate/free some kernel-space virtual pages */
+vaddr_t 
+alloc_kpages(int npages)
 {
+
 	int spl;
 	paddr_t addr;
 
 	spl = splhigh();
 
-	addr = ram_stealmem(npages);
+	addr = pt_alloc_kpages(0, npages);
 	
 	splx(spl);
 	return addr;
-}
-
-/* Allocate/free some kernel-space virtual pages */
-vaddr_t 
-alloc_kpages(int npages)
-{
-	paddr_t pa;
-	pa = getppages(npages);
-	if (pa==0) {
-		return 0;
-	}
-	return PADDR_TO_KVADDR(pa);
 }
 
 void 
@@ -120,7 +110,7 @@ as_create(void)
 }
 
 int
-as_copy(struct addrspace *old, struct addrspace **ret)
+as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 {
 	struct addrspace *new;
 
@@ -137,7 +127,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	new->as_vbase2 = old->as_vbase2;
 	new->as_npages2 = old->as_npages2;
 
-	if (as_prepare_load(new)) {
+	if (as_prepare_load(new, pid)) {
 		as_destroy(new);
 		return ENOMEM;
 	}
@@ -273,7 +263,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 }
 
 int
-as_prepare_load(struct addrspace *as)
+as_prepare_load(struct addrspace *as, pid_t pid)
 {
 	#if OPT_A3
 
@@ -285,6 +275,27 @@ as_prepare_load(struct addrspace *as)
 	assert(as->as_pbase2 == 0);
 	assert(as->as_stackpbase == 0);
 
+	int i;
+
+	for(i = 0; i < as->as_npages1; i++) {
+		pt_alloc_page(pid, i, as->as_vbase1);
+	}
+
+	as->as_pbase1 = pt_get_paddr(pid, as->as_vbase1);
+
+	for(i = 0; i < as->as_npages2; i++) {
+		pt_alloc_page(pid, i, as->as_vbase2);
+	}
+
+	as->as_pbase2 = pt_get_paddr(pid, as->as_vbase2);
+
+	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
+	for(i = 0; i < STACKPAGES; i++) {
+		pt_alloc_page(pid, i, stackbase);
+	}
+
+	as->as_stackpbase = pt_get_paddr(pid, stackbase);
+/*
 	as->as_pbase1 = getppages(as->as_npages1);
 	if (as->as_pbase1 == 0) {
 		return ENOMEM;
@@ -299,7 +310,7 @@ as_prepare_load(struct addrspace *as)
 	if (as->as_stackpbase == 0) {
 		return ENOMEM;
 	}
-
+*/
 	return 0;
 
 	#else

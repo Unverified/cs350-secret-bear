@@ -22,6 +22,7 @@
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
 #include "opt-A2.h"
+#include "opt-A3.h"
 /* States a thread can be in. */
 typedef enum {
 	S_RUN,
@@ -479,7 +480,11 @@ sys_fork(struct trapframe *tf, int *retval)
 	memcpy(&newguy->t_stack[16], tf, sizeof(struct trapframe));
 	md_initpcb(&newguy->t_pcb, newguy->t_stack, &newguy->t_stack[16], 0, (void*)md_forkentry);
 	
+	#if OPT_A3
+	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace, newguy->t_pid);
+	#else
 	result = as_copy(curthread->t_vmspace, &newguy->t_vmspace);
+	#endif
 	if(result) {
 		goto fail;
 	}

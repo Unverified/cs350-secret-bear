@@ -19,6 +19,7 @@
 #include <pid.h>
 #include <filecalls.h>
 #include <uw-vmstats.h>
+#include <pt.h>
 #include "opt-A0.h"
 #include "opt-A3.h"
 
@@ -93,6 +94,7 @@ boot(void)
 	dev_bootstrap();
 	vm_bootstrap();
 	kprintf_bootstrap();
+	pt_bootstrap();
 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");

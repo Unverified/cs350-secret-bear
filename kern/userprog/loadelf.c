@@ -17,6 +17,7 @@
 #include <thread.h>
 #include <curthread.h>
 #include <vnode.h>
+#include "opt-A3.h"
 
 /*
  * Load a segment at virtual address VADDR. The segment in memory
@@ -185,7 +186,11 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		}
 	}
 
+	#if OPT_A3
+	result = as_prepare_load(curthread->t_vmspace, curthread->t_pid);
+	#else
 	result = as_prepare_load(curthread->t_vmspace);
+	#endif
 	if (result) {
 		return result;
 	}

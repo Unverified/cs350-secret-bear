@@ -10,6 +10,7 @@
 #include <addrspace.h>
 #include <vm.h>
 #include <uw-vmstats.h>
+#include <pt.h>
 
 static unsigned int m_next_victim = 0;
 
@@ -70,15 +71,29 @@ int tlb_write(vaddr_t faultaddress) {
 	stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	stacktop = USERSTACK;
 
+	if (!(faultaddress >= vbase1 && faultaddress < vtop1) &&
+	    !(faultaddress >= vbase2 && faultaddress < vtop2) &&
+	    !(faultaddress >= stackbase && faultaddress < stacktop)) {
+		return EFAULT;
+	}
+
+	paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+
+	if(paddr == 0) {
+		// There was a page fault, we need to load the page into memory.
+		// This will never happen right now because on demand page loading is
+		// not yet implemented, we just load every page into the page table.
+	}
+
 	writeable = TLBLO_DIRTY;
 
 	if (faultaddress >= vbase1 && faultaddress < vtop1) {
 		if(!as->t_loadingexe)
 			writeable = 0;
 
-		paddr = (faultaddress - vbase1) + as->as_pbase1;
+		//paddr = (faultaddress - vbase1) + as->as_pbase1;
 	}
-	else if (faultaddress >= vbase2 && faultaddress < vtop2) {
+	/*else if (faultaddress >= vbase2 && faultaddress < vtop2) {
 		paddr = (faultaddress - vbase2) + as->as_pbase2;
 	}
 	else if (faultaddress >= stackbase && faultaddress < stacktop) {
@@ -86,7 +101,7 @@ int tlb_write(vaddr_t faultaddress) {
 	}
 	else {
 		return EFAULT;
-	}
+	}*/
 
 	/* make sure it's page-aligned */
 	assert((paddr & PAGE_FRAME)==paddr);

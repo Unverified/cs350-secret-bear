@@ -35,6 +35,7 @@ struct addrspace {
 	paddr_t as_stackpbase;
 
 	int t_loadingexe;
+
 	/////////////////////////////////////////
 #endif
 };
@@ -74,7 +75,7 @@ struct addrspace {
  */
 
 struct addrspace *as_create(void);
-int               as_copy(struct addrspace *src, struct addrspace **ret);
+int               as_copy(struct addrspace *src, struct addrspace **ret, pid_t pid);
 void              as_activate(struct addrspace *);
 void              as_destroy(struct addrspace *);
 
@@ -83,7 +84,7 @@ int               as_define_region(struct addrspace *as,
 				   int readable, 
 				   int writeable,
 				   int executable);
-int		  as_prepare_load(struct addrspace *as);
+int		  as_prepare_load(struct addrspace *as, pid_t pid);
 int		  as_complete_load(struct addrspace *as);
 int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
