@@ -275,23 +275,32 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 	assert(as->as_pbase2 == 0);
 	assert(as->as_stackpbase == 0);
 
-	int i;
+	int i, result;
 
 	for(i = 0; i < as->as_npages1; i++) {
-		pt_alloc_page(pid, i, as->as_vbase1);
+		result = pt_alloc_page(pid, as->as_vbase1 + i * PAGE_SIZE);
+		if(result) {
+			return result;
+		}
 	}
 
 	as->as_pbase1 = pt_get_paddr(pid, as->as_vbase1);
 
 	for(i = 0; i < as->as_npages2; i++) {
-		pt_alloc_page(pid, i, as->as_vbase2);
+		result = pt_alloc_page(pid, as->as_vbase2 + i * PAGE_SIZE);
+		if(result) {
+			return result;
+		}
 	}
 
 	as->as_pbase2 = pt_get_paddr(pid, as->as_vbase2);
 
 	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	for(i = 0; i < STACKPAGES; i++) {
-		pt_alloc_page(pid, i, stackbase);
+		result = pt_alloc_page(pid, stackbase + i * PAGE_SIZE);
+		if(result) {
+			return result;
+		}
 	}
 
 	as->as_stackpbase = pt_get_paddr(pid, stackbase);

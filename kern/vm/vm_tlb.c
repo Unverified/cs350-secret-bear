@@ -83,6 +83,7 @@ int tlb_write(vaddr_t faultaddress) {
 		// There was a page fault, we need to load the page into memory.
 		// This will never happen right now because on demand page loading is
 		// not yet implemented, we just load every page into the page table.
+		return EFAULT;
 	}
 
 	writeable = TLBLO_DIRTY;

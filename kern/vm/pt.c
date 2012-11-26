@@ -3,44 +3,44 @@
 #include <types.h>
 #include <lib.h>
 #include <kern/errno.h>
+#include <synch.h>
 #include <vm.h>
 #include <pt.h>
-#include <synch.h>
+#include <coremap.h>
 
 struct lock *pt_mutex;
 struct page_table_entry *page_table;
-int pt_initialized;
 int total_pages;
 
-void pt_bootstrap() {
-	int i, ramsize, pt_size;
-	vaddr_t pt_vaddr;
-	u_int32_t lo, hi;
+int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap_vaddr) {
+	int i, pt_size;	
+	paddr_t pt_paddr;
+	vaddr_t pt_vaddr;	
+	total_pages = pages;
 
 	pt_mutex = lock_create("pt_mutex");
 
 	lock_acquire(pt_mutex);
-
-	/* get the amount of ram we have to work with and 
-	 * the total number of pages we can have */
-	ram_getsize(&lo, &hi);
-	ramsize = hi - lo;
-	total_pages = ramsize/PAGE_SIZE;
-
-	/* after we call ram_getsize we have to do all the managing. We need
-	 * to alloc memory for the page_table but we cant use kmalloc because
-	 * we need the page_table for kmallocs. So we need to manually alloc
-	 * space for our page_table and assign those pages in the page_table. */
+	
+	pt_paddr = starting_paddr + coremap_size * PAGE_SIZE;
+	pt_vaddr = PADDR_TO_KVADDR(pt_paddr);
+	page_table = pt_vaddr;
 	pt_size = (sizeof(struct page_table_entry)*total_pages + PAGE_SIZE)/PAGE_SIZE;
-	pt_vaddr = PADDR_TO_KVADDR(lo);
-	page_table = pt_vaddr; 
+
+	/* Put the coremap pages into to page table */
+	for(i=0; i<coremap_size; i++) {
+		page_table[i].paddr = starting_paddr + i * PAGE_SIZE;
+		page_table[i].vaddr = coremap_vaddr + i * PAGE_SIZE;
+		page_table[i].isKernel = 1;
+	}
 
 	/* Initialized the paget_table. */
-	for(i=0; i<total_pages; i++) {
-		page_table[i].paddr = lo + i * PAGE_SIZE;
+	for(i=coremap_size; i<total_pages; i++) {
+		page_table[i].paddr = starting_paddr + i * PAGE_SIZE;
 		
-		if(i < pt_size) {
-			page_table[i].vaddr = pt_vaddr;
+		if(i < pt_size + coremap_size) {
+			/* Put the page tables pages into to page table */
+			page_table[i].vaddr = pt_vaddr + i * PAGE_SIZE;
 			page_table[i].isKernel = 1;
 		} else {
 			page_table[i].vaddr = 0;
@@ -49,9 +49,8 @@ void pt_bootstrap() {
 		
 	}
 
-	pt_initialized = 1;
-
 	lock_release(pt_mutex);
+	return pt_size;
 }
 
 /* Gets the physical address from a virtual address for process pid.
@@ -83,23 +82,23 @@ paddr_t pt_get_paddr(pid_t pid, vaddr_t vaddr) {
 }
 
 /* Allocates a single page of memory. Currently does not do page replacement. */
-paddr_t pt_alloc_page(pid_t pid, int page, vaddr_t vbase) {
-	int i;
+int pt_alloc_page(pid_t pid, vaddr_t vaddr) {
+	int i, page_index;
+	paddr_t paddr;
 
 	lock_acquire(pt_mutex);
-	
-	for(i = 0; i < total_pages; i++) {
-		if(page_table[i].vaddr == 0) {
-			page_table[i].vaddr = vbase + page * PAGE_SIZE;
-			page_table[i].pid = pid;
-			page_table[i].isKernel = 0;
-			lock_release(pt_mutex);
-			return page_table[i].paddr;
-		}
+
+	page_index = get_free_page();
+	if(page_index == -1) {
+		//There are no free pages in memory, need to do page replacement to get a page
+		//For now return ENOMEM
+		lock_release(pt_mutex);
+		return ENOMEM;
 	}
 
-	// if we get here we run out of free pages so we need to do page replacement
-	// for now just return 0.
+	page_table[page_index].vaddr = vaddr;
+	page_table[page_index].pid = pid;
+	page_table[page_index].isKernel = 0;
 
 	lock_release(pt_mutex);
 
@@ -114,37 +113,26 @@ vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
 	paddr_t paddr;
 	vaddr_t vaddr;
 
-	if(!pt_initialized) {
-		return PADDR_TO_KVADDR(ram_stealmem(npages));
+	/* First we need to check to see if the coremap (also pt) have
+	 * initialized. If they have is_coremap_intialized will return 0
+	 * and we continue. If coremap has not intialized yet is_coremap_intialized
+	 * will use ram_stealmem and return the vaddr. */
+	vaddr = is_coremap_initialized(npages);
+	if(vaddr) {
+		return vaddr;
 	}
 
 	lock_acquire(pt_mutex);
 
-	count = 0;
-	for(i = 0; i < total_pages; i++) {
-		if(page_table[i].vaddr == 0) {
-			if(count == 0) {
-				paddr = page_table[i].paddr;
-				page_index = i;
-			}
-			
-			count++;
-
-			if(count == npages) {
-				break;
-			}
-		} else {
-			count = 0;
-		}
-	}
-
-	if(count < npages) {
-		// we dont have a chunk of mem big enough
-		// dont know what we are suppose to do here so just return 0 and let kmalloc deal with it.
+	/* Ask for a chunk of mem from coremap */
+	page_index = get_free_kpages(npages);
+	if(page_index == -1) {
 		lock_release(pt_mutex);
-		return 0; 
-	}
+		return 0;
+	}	
 
+	/* put tose pages into the page table */
+	paddr = page_table[page_index].paddr;
 	vaddr = PADDR_TO_KVADDR(paddr);
 	for(i=0; i<npages; i++) {
 		page_table[i + page_index].vaddr = vaddr + i * PAGE_SIZE;
@@ -157,6 +145,25 @@ vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
 	return vaddr;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////
+/* Used for debuging, delete before submit*/
+int pt_entry_count() {
+	int i, count = 0;	
+	for(i=0; i < total_pages; i++) {
+		if(page_table[i].vaddr == 0) {
+			break;
+		}
+		count++;
+	}
+	return count;
+}
+
+void print_pt_entries(int n) {
+	int i;	
+	for(i=0; i < n; i++) {
+		kprintf("pt entry: %p\n", page_table[i].vaddr);
+	}
+}
 
 
 
