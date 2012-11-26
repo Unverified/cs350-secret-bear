@@ -12,13 +12,13 @@ struct lock *pt_mutex;
 struct page_table_entry *page_table;
 int total_pages;
 
-int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap_vaddr) {
+int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap_vaddr, struct lock *mutex) {
 	int i, pt_size;	
 	paddr_t pt_paddr;
 	vaddr_t pt_vaddr;	
 	total_pages = pages;
 
-	pt_mutex = lock_create("pt_mutex");
+	pt_mutex = mutex;
 
 	lock_acquire(pt_mutex);
 	
@@ -26,6 +26,9 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	pt_vaddr = PADDR_TO_KVADDR(pt_paddr);
 	page_table = pt_vaddr;
 	pt_size = (sizeof(struct page_table_entry)*total_pages + PAGE_SIZE)/PAGE_SIZE;
+
+	//kprintf("total_pages: %d coremap_size: %d pt_size: %d\n", total_pages, coremap_size, pt_size);
+	//kprintf("starting_paddr: %p pt_paddr: %p coremap_vaddr: %p page_table: %p\n", starting_paddr, pt_paddr, PADDR_TO_KVADDR(starting_paddr), page_table);
 
 	/* Put the coremap pages into to page table */
 	for(i=0; i<coremap_size; i++) {
@@ -40,7 +43,7 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 		
 		if(i < pt_size + coremap_size) {
 			/* Put the page tables pages into to page table */
-			page_table[i].vaddr = pt_vaddr + i * PAGE_SIZE;
+			page_table[i].vaddr = pt_vaddr + (i - coremap_size) * PAGE_SIZE;
 			page_table[i].isKernel = 1;
 		} else {
 			page_table[i].vaddr = 0;
@@ -141,20 +144,80 @@ vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
 	}
 
 	lock_release(pt_mutex);
-
 	return vaddr;
+}
+
+void pt_free_page(pid_t pid, vaddr_t vaddr) {
+	int i;
+	paddr_t paddr = 0;
+
+	lock_acquire(pt_mutex);
+
+	for(i = 0; i < total_pages; i++) {
+		if(page_table[i].pid == pid) {
+			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
+			vaddr_t vbottom = page_table[i].vaddr;
+			
+			if(vaddr >= vbottom && vaddr < vtop) {
+				//if(page_table[i].dirty) {
+					// Page has been motified, need to write it to disk
+					// TODO: Implement this when on demand page loading is implemented
+				//}
+
+				page_table[i].vaddr = 0;
+				page_table[i].pid = 0;
+				page_table[i].isKernel = 0;
+				//page_table[i].writeable = 0;
+				//page_table[i].dirty = 0;
+
+				free_page(i);
+				break;
+			}
+		}
+	}
+
+	lock_release(pt_mutex);
+}
+
+void pt_free_kpage(vaddr_t vaddr) {
+	int i;
+	paddr_t paddr = 0;
+
+	lock_acquire(pt_mutex);
+
+	for(i = 0; i < total_pages; i++) {
+		if(page_table[i].isKernel) {
+			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
+			vaddr_t vbottom = page_table[i].vaddr;
+			
+			if(vaddr >= vbottom && vaddr < vtop) {
+				page_table[i].vaddr = 0;
+				page_table[i].pid = 0;
+				page_table[i].isKernel = 0;
+				//page_table[i].writeable = 0;
+				//page_table[i].dirty = 0;
+
+				free_page(i);
+				break;
+			}
+		}
+	}
+
+	lock_release(pt_mutex);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 /* Used for debuging, delete before submit*/
-int pt_entry_count() {
-	int i, count = 0;	
+int pt_entry_count(int kernelOnly) {
+	int i, last_i = 0, count = 0;	
 	for(i=0; i < total_pages; i++) {
-		if(page_table[i].vaddr == 0) {
-			break;
+		if((page_table[i].vaddr != 0 && kernelOnly && page_table[i].isKernel) ||
+		   (page_table[i].vaddr != 0 && !kernelOnly)) {
+			count++;
+			last_i = i;
 		}
-		count++;
 	}
+	//print_pt_entries(last_i+1);
 	return count;
 }
 

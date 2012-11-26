@@ -6,4 +6,5 @@ vaddr_t is_coremap_initialized(int n);
 int get_free_kpages(int n);
 int get_free_page();
 int coremap_entry_count();
+void free_page(int page);
 #endif

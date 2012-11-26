@@ -48,9 +48,7 @@ alloc_kpages(int npages)
 void 
 free_kpages(vaddr_t addr)
 {
-	/* nothing */
-
-	(void)addr;
+	pt_free_kpage(addr);
 }
 
 int
