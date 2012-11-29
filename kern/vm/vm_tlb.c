@@ -33,18 +33,23 @@ static int check_as(struct addrspace *as) {
 	}
 
 	/* Assert that the address space has been set up properly. */
-	assert(as->as_vbase1 != 0);
-	assert(as->as_pbase1 != 0);
-	assert(as->as_npages1 != 0);
-	assert(as->as_vbase2 != 0);
-	assert(as->as_pbase2 != 0);
-	assert(as->as_npages2 != 0);
+	assert(as->as_vbasec != 0);
+	assert(as->as_npagec != 0);
+	assert(as->as_pbasec != NULL);
+	
+	assert(as->as_vbased != 0);
+	assert(as->as_npaged != 0);
+	assert(as->as_pbased != NULL);
+	
 	assert(as->as_stackpbase != 0);
+	
+	/*
 	assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
 	assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
 	assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
 	assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
 	assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
+	*/
 
 	return 0;
 }
@@ -64,10 +69,10 @@ int tlb_write(vaddr_t faultaddress) {
 		return result;
 	}
 
-	vbase1 = as->as_vbase1;
-	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
-	vbase2 = as->as_vbase2;
-	vtop2 = vbase2 + as->as_npages2 * PAGE_SIZE;
+	vbase1 = as->as_vbasec;
+	vtop1 = vbase1 + as->as_npagec * PAGE_SIZE;
+	vbase2 = as->as_vbased;
+	vtop2 = vbase2 + as->as_npaged * PAGE_SIZE;
 	stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	stacktop = USERSTACK;
 
@@ -146,8 +151,8 @@ void tlb_set_text_read_only(struct addrspace *as) {
 	u_int32_t ehi, elo;
 	int i;
 
-	vbase1 = as->as_vbase1;
-	vtop1 = vbase1 + as->as_npages1 * PAGE_SIZE;
+	vbase1 = as->as_vbasec;
+	vtop1 = vbase1 + as->as_npagec * PAGE_SIZE;
 
 	for (i=0; i<NUM_TLB; i++) {
 		TLB_Read(&ehi, &elo, i);

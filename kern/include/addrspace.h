@@ -25,18 +25,17 @@ struct addrspace {
 	size_t as_npages2;
 	paddr_t as_stackpbase;
 #else
-	// temp to get asst3 config to compile //
-	vaddr_t as_vbase1;
-	paddr_t as_pbase1;
-	size_t as_npages1;
-	vaddr_t as_vbase2;
-	paddr_t as_pbase2;
-	size_t as_npages2;
-	paddr_t as_stackpbase;
+	vaddr_t as_vbasec;
+	paddr_t *as_pbasec;
+	int as_npagec;
+	
+	vaddr_t as_vbased;
+	paddr_t *as_pbased;
+	int as_npaged;
+	
+	paddr_t as_stackpbase; //[STACKPAGES];
 
 	int t_loadingexe;
-
-	/////////////////////////////////////////
 #endif
 };
 
