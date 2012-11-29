@@ -29,7 +29,7 @@ struct addrspace *active_as = NULL;
 void
 vm_bootstrap(void)
 {
-	/* Do nothing. */
+	coremap_bootstrap();
 }
 
 /* Allocate/free some kernel-space virtual pages */

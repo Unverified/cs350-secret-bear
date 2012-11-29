@@ -81,24 +81,20 @@ boot(void)
 	#if OPT_A0
 		hello();
 	#endif /* OPT_A0 */
-
 	ram_bootstrap();
 	scheduler_bootstrap();
 	#if OPT_A2
-		struct thread *menu = thread_bootstrap();
+	struct thread *menu = thread_bootstrap();
 	#else
-		thread_bootstrap();
-	#endif
-	
+	thread_bootstrap();
+	#endif /* OPT_A2 */
 	vfs_bootstrap();
 	dev_bootstrap();
 	vm_bootstrap();
 	kprintf_bootstrap();
-	coremap_bootstrap();
-
+	
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
 	vfs_setbootfs("emu0");
-
 
 	/*
 	 * Make sure various things aren't screwed up.
@@ -107,8 +103,8 @@ boot(void)
 	assert(sizeof(*(userptr_t)0)==sizeof(char));
 	
 	#if OPT_A2
-		menu->t_pid = pid_getnext(menu);
-		fd_init_initial(menu);
+	menu->t_pid = pid_getnext(menu);
+	fd_init_initial(menu);
 	#endif
 
 	#if OPT_A3
