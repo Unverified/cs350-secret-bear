@@ -32,25 +32,6 @@ static int check_as(struct addrspace *as) {
 		return EFAULT;
 	}
 
-	/* Assert that the address space has been set up properly. */
-	assert(as->as_vbasec != 0);
-	assert(as->as_npagec != 0);
-	assert(as->as_pbasec != NULL);
-	
-	assert(as->as_vbased != 0);
-	assert(as->as_npaged != 0);
-	assert(as->as_pbased != NULL);
-	
-	assert(as->as_stackpbase != 0);
-	
-	/*
-	assert((as->as_vbase1 & PAGE_FRAME) == as->as_vbase1);
-	assert((as->as_pbase1 & PAGE_FRAME) == as->as_pbase1);
-	assert((as->as_vbase2 & PAGE_FRAME) == as->as_vbase2);
-	assert((as->as_pbase2 & PAGE_FRAME) == as->as_pbase2);
-	assert((as->as_stackpbase & PAGE_FRAME) == as->as_stackpbase);
-	*/
-
 	return 0;
 }
 
