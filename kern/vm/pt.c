@@ -63,7 +63,6 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
 	if(page_index == -1) {
 		//There are no free pages in memory, need to do page replacement to get a page
 		//For now return ENOMEM
-		lock_release(pt_mutex);
 		return 0;
 	}
 
@@ -177,31 +176,24 @@ int pt_copymem(pid_t curpid, pid_t pid) {
 	return 0;
 }
 
-void pt_free_page(pid_t pid, vaddr_t vaddr) {
+void pt_free_pages(pid_t pid) {
 	int i;
 
 	lock_acquire(pt_mutex);
 
 	for(i = 0; i < total_pages; i++) {
 		if(page_table[i].pid == pid) {
-			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
-			vaddr_t vbottom = page_table[i].vaddr;
-			
-			if(vaddr >= vbottom && vaddr < vtop) {
-				//if(page_table[i].dirty) {
-					// Page has been motified, need to write it to disk
-					// TODO: Implement this when on demand page loading is implemented
-				//}
+			//if(page_table[i].dirty) {
+				// Page has been motified, need to write it to disk
+				// TODO: Implement this when on demand page loading is implemented
+			//}
 
-				page_table[i].vaddr = 0;
-				page_table[i].pid = 0;
-				page_table[i].isKernel = 0;
-				//page_table[i].writeable = 0;
-				//page_table[i].dirty = 0;
-
-				free_page(i);
-				break;
-			}
+			page_table[i].vaddr = 0;
+			page_table[i].pid = 0;
+			page_table[i].isKernel = 0;
+			//page_table[i].writeable = 0;
+			//page_table[i].dirty = 0;
+			free_page(i);
 		}
 	}
 
@@ -211,7 +203,7 @@ void pt_free_page(pid_t pid, vaddr_t vaddr) {
 void pt_free_kpage(vaddr_t vaddr) {
 	int i;
 
-	lock_acquire(pt_mutex);
+	//lock_acquire(pt_mutex);
 
 	for(i = 0; i < total_pages; i++) {
 		if(page_table[i].isKernel) {
@@ -231,7 +223,7 @@ void pt_free_kpage(vaddr_t vaddr) {
 		}
 	}
 
-	lock_release(pt_mutex);
+	//lock_release(pt_mutex);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -252,7 +244,7 @@ int pt_entry_count(int kernelOnly) {
 void print_pt_entries(int n) {
 	int i;	
 	for(i=0; i < n; i++) {
-		kprintf("pt entry: %p\n", page_table[i].vaddr);
+		kprintf("pt entry: %d\n", page_table[i].pid);
 	}
 }
 

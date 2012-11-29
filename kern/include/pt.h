@@ -15,7 +15,7 @@ paddr_t pt_get_paddr(pid_t pid, vaddr_t vaddr);
 paddr_t pt_alloc_page(pid_t pid, vaddr_t vaddr);
 vaddr_t pt_alloc_kpages(pid_t pid, int npages);
 int pt_copymem(pid_t curpid, pid_t pid);
-void pt_free_page(pid_t pid, vaddr_t vaddr);
+void pt_free_pages(pid_t pid);
 void pt_free_kpage(vaddr_t vaddr);
 
 int pt_entry_count(int kernelOnly);

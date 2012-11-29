@@ -18,6 +18,7 @@
 #include <pid.h>
 #include <synch.h>
 #include <filecalls.h>
+#include <pt.h>
 
 #include "opt-synchprobs.h"
 #include "opt-A1.h"
@@ -668,6 +669,8 @@ thread_exit(void)
 	#endif /* OPT_A2 */
 
 	splhigh();
+
+	pt_free_pages(curthread->t_pid);
 
 	if (curthread->t_vmspace) {
 		/*

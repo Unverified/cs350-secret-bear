@@ -8,7 +8,7 @@
 #include <synch.h>
 
 struct lock *coremap_mutex;
-int *coremap;
+char *coremap;
 int total_pages;
 int coremap_init;
 
@@ -37,7 +37,7 @@ void coremap_bootstrap() {
 	 * to alloc memory for the page_table but we cant use kmalloc because
 	 * we need the page_table for kmallocs. So we need to manually alloc
 	 * space for our page_table and assign those pages in the page_table. */
-	coremap_size = (sizeof(int)*total_pages + PAGE_SIZE)/PAGE_SIZE;
+	coremap_size = (total_pages + PAGE_SIZE)/PAGE_SIZE;
 	coremap_vaddr = PADDR_TO_KVADDR(lo);
 	coremap = coremap_vaddr; 
 
