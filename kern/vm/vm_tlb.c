@@ -78,17 +78,8 @@ int tlb_write(vaddr_t faultaddress) {
 		if(!as->t_loadingexe)
 			writeable = 0;
 
-		//paddr = (faultaddress - vbase1) + as->as_pbase1;
+		
 	}
-	/*else if (faultaddress >= vbase2 && faultaddress < vtop2) {
-		paddr = (faultaddress - vbase2) + as->as_pbase2;
-	}
-	else if (faultaddress >= stackbase && faultaddress < stacktop) {
-		paddr = (faultaddress - stackbase) + as->as_stackpbase;
-	}
-	else {
-		return EFAULT;
-	}*/
 
 	/* make sure it's page-aligned */
 	assert((paddr & PAGE_FRAME)==paddr);
