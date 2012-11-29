@@ -62,17 +62,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	spl = splhigh();
 
 	faultaddress &= PAGE_FRAME;
-
 	DEBUG(DB_VM, "vm: fault: 0x%x\n", faultaddress);
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 		//probs have to put a diff code
 		sys__exit(EFAULT);
+		
 	    case VM_FAULT_READ:
-		break;
 	    case VM_FAULT_WRITE:
 		break;
+		
 	    default:
 		splx(spl);
 		return EINVAL;
@@ -95,8 +95,6 @@ as_create(void)
 	}
 
 	#if OPT_A3
-
-	/* TODO: Implement better vm */
 	as->as_vbasec = 0;
 	as->as_npagec = 0;
 	as->as_pbasec = NULL;
@@ -106,7 +104,6 @@ as_create(void)
 	as->as_pbased = NULL;
 	
 	as->as_stackpbase = 0;
-
 	#endif
 
 	return as;
@@ -162,9 +159,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 		STACKPAGES*PAGE_SIZE);
 	*/
 	#else
-
 	(void)old;
-
 	#endif
 	
 	*ret = new;
@@ -177,33 +172,22 @@ as_destroy(struct addrspace *as)
 	#if OPT_A3
 	if(as->as_pbasec != NULL) kfree(as->as_pbasec);
 	if(as->as_pbased != NULL) kfree(as->as_pbased);
-	
-	
-	kfree(as);
-	#else
-	kfree(as);
 	#endif
+	
+	kfree(as);
 }
 
 void
 as_activate(struct addrspace *as)
 {
 	#if OPT_A3
-
-	if(active_as == as) {
-		return;
-	}
-
+	if(active_as == as) { return; }
 	active_as = as;
-
-	tlb_invalidate();
-
 	#else
-
 	(void)as;  // suppress warning until code gets written
-	tlb_invalidate();
-
 	#endif
+	
+	tlb_invalidate();
 }
 
 /*
