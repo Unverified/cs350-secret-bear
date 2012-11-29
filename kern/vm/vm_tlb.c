@@ -152,9 +152,9 @@ void tlb_set_text_read_only(struct addrspace *as) {
 	for (i=0; i<NUM_TLB; i++) {
 		TLB_Read(&ehi, &elo, i);
 		if (elo & TLBLO_VALID && ehi >= vbase1 && ehi < vtop1) {
-			// I dont know how to just set the dirty bit to 0 so im doing it the hard way
-			paddr = (ehi - vbase1) + as->as_pbase1;
-			elo = paddr | TLBLO_VALID;
+			// Nick for future ref, this is how you drop a flag
+			elo &= ~TLBLO_DIRTY;
+			
 			TLB_Write(ehi, elo, i);
 		}
 	}

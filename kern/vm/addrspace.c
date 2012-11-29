@@ -7,6 +7,9 @@
 #include <thread.h>
 #include <curthread.h>
 #include <pt.h>
+#include <syscall.h>
+#include <coremap.h>
+
 #include "opt-A3.h"
 
 #include <machine/spl.h>
@@ -302,6 +305,7 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 	}
 
 	as->as_stackpbase = pt_get_paddr(pid, stackbase);
+	
 /*
 	as->as_pbase1 = getppages(as->as_npages1);
 	if (as->as_pbase1 == 0) {
