@@ -24,7 +24,7 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	
 	pt_paddr = starting_paddr + coremap_size * PAGE_SIZE;
 	pt_vaddr = PADDR_TO_KVADDR(pt_paddr);
-	page_table = pt_vaddr;
+	page_table = (struct page_table_entry *)pt_vaddr;
 	pt_size = (sizeof(struct page_table_entry)*total_pages + PAGE_SIZE)/PAGE_SIZE;
 
 	//kprintf("total_pages: %d coremap_size: %d pt_size: %d\n", total_pages, coremap_size, pt_size);
@@ -56,6 +56,24 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	return pt_size;
 }
 
+static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
+	int page_index;
+
+	page_index = get_free_page();
+	if(page_index == -1) {
+		//There are no free pages in memory, need to do page replacement to get a page
+		//For now return ENOMEM
+		lock_release(pt_mutex);
+		return 0;
+	}
+
+	page_table[page_index].vaddr = vaddr;
+	page_table[page_index].pid = pid;
+	page_table[page_index].isKernel = 0;
+
+	return page_table[page_index].paddr;
+}
+
 /* Gets the physical address from a virtual address for process pid.
  * All it does is looks for page_table_entry's that have a matching pid
  * can looks at the virtual address for each of those pages. If vaddr is
@@ -85,34 +103,21 @@ paddr_t pt_get_paddr(pid_t pid, vaddr_t vaddr) {
 }
 
 /* Allocates a single page of memory. Currently does not do page replacement. */
-int pt_alloc_page(pid_t pid, vaddr_t vaddr) {
-	int i, page_index;
+paddr_t pt_alloc_page(pid_t pid, vaddr_t vaddr) {
 	paddr_t paddr;
 
 	lock_acquire(pt_mutex);
-
-	page_index = get_free_page();
-	if(page_index == -1) {
-		//There are no free pages in memory, need to do page replacement to get a page
-		//For now return ENOMEM
-		lock_release(pt_mutex);
-		return ENOMEM;
-	}
-
-	page_table[page_index].vaddr = vaddr;
-	page_table[page_index].pid = pid;
-	page_table[page_index].isKernel = 0;
-
+	paddr = alloc_page(pid, vaddr);
 	lock_release(pt_mutex);
 
-	return 0;
+	return paddr;
 }
 
 /* Allocates a chunk of memory for the kernel. It doesn't use page replacement either
  * but i don't know how that is suppose to work since it is expecting one chunk of memory
  * and if we don't have a chunk of memory large enough what are we suppose to replace? */
 vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
-	int i, count, page_index;
+	int i, page_index;
 	paddr_t paddr;
 	vaddr_t vaddr;
 
@@ -147,9 +152,33 @@ vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
 	return vaddr;
 }
 
+/* Copies all paget table entries belonging to curpid to pid */
+int pt_copymem(pid_t curpid, pid_t pid) {
+	int i;
+	paddr_t paddr;
+
+	lock_acquire(pt_mutex);
+
+	for(i = 0; i < total_pages; i++) {
+		if(page_table[i].pid == curpid) {
+			//kprintf("alloc page for pid %d\n", pid);
+			paddr = alloc_page(pid, page_table[i].vaddr);
+			if(paddr == 0) {
+				lock_release(pt_mutex);
+				return ENOMEM;
+			}
+
+			memmove((void *)PADDR_TO_KVADDR(paddr),	(const void *)PADDR_TO_KVADDR(page_table[i].paddr), PAGE_SIZE);
+		}
+	}
+
+	lock_release(pt_mutex);
+
+	return 0;
+}
+
 void pt_free_page(pid_t pid, vaddr_t vaddr) {
 	int i;
-	paddr_t paddr = 0;
 
 	lock_acquire(pt_mutex);
 
@@ -181,7 +210,6 @@ void pt_free_page(pid_t pid, vaddr_t vaddr) {
 
 void pt_free_kpage(vaddr_t vaddr) {
 	int i;
-	paddr_t paddr = 0;
 
 	lock_acquire(pt_mutex);
 

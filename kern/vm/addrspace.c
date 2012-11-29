@@ -113,6 +113,7 @@ as_create(void)
 int
 as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 {
+	int result;
 	struct addrspace *new;
 
 	new = as_create();
@@ -128,16 +129,22 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 	new->as_vbase2 = old->as_vbase2;
 	new->as_npages2 = old->as_npages2;
 
-	if (as_prepare_load(new, pid)) {
+	/*if (as_prepare_load(new, pid)) {
 		as_destroy(new);
 		return ENOMEM;
 	}
 
 	assert(new->as_pbase1 != 0);
 	assert(new->as_pbase2 != 0);
-	assert(new->as_stackpbase != 0);
+	assert(new->as_stackpbase != 0);*/
 
-	memmove((void *)PADDR_TO_KVADDR(new->as_pbase1),
+	result = pt_copymem(curthread->t_pid, pid);
+	if(result) {
+		as_destroy(new);
+		return result;
+	}
+
+	/*memmove((void *)PADDR_TO_KVADDR(new->as_pbase1),
 		(const void *)PADDR_TO_KVADDR(old->as_pbase1),
 		old->as_npages1*PAGE_SIZE);
 
@@ -147,7 +154,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 
 	memmove((void *)PADDR_TO_KVADDR(new->as_stackpbase),
 		(const void *)PADDR_TO_KVADDR(old->as_stackpbase),
-		STACKPAGES*PAGE_SIZE);
+		STACKPAGES*PAGE_SIZE);*/
 	
 	#else
 
@@ -280,8 +287,8 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 
 	for(i = 0; i < as->as_npages1; i++) {
 		result = pt_alloc_page(pid, as->as_vbase1 + i * PAGE_SIZE);
-		if(result) {
-			return result;
+		if(!result) {
+			return ENOMEM;
 		}
 	}
 
@@ -289,8 +296,8 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 
 	for(i = 0; i < as->as_npages2; i++) {
 		result = pt_alloc_page(pid, as->as_vbase2 + i * PAGE_SIZE);
-		if(result) {
-			return result;
+		if(!result) {
+			return ENOMEM;
 		}
 	}
 
@@ -299,8 +306,8 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	for(i = 0; i < STACKPAGES; i++) {
 		result = pt_alloc_page(pid, stackbase + i * PAGE_SIZE);
-		if(result) {
-			return result;
+		if(!result) {
+			return ENOMEM;
 		}
 	}
 
