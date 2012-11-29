@@ -113,6 +113,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 		return EBADF;
 	}
 
+/*
 	if((data == NULL || (void*)data >= (void*)0x80000000) ||
 		((void*)data >= (void*)curthread->t_vmspace->as_vbase1 &&
 		(void*)data <= ((void*)curthread->t_vmspace->as_vbase1 + 
@@ -120,6 +121,7 @@ sys_read(int fd, userptr_t data, size_t size, int *retval)
 	{
 		return EFAULT;
 	}
+*/
 
 	char *k_data = kmalloc(sizeof(char)*size);
 	if(k_data == NULL){

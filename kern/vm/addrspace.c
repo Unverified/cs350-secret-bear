@@ -62,17 +62,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	spl = splhigh();
 
 	faultaddress &= PAGE_FRAME;
-
 	DEBUG(DB_VM, "vm: fault: 0x%x\n", faultaddress);
 
 	switch (faulttype) {
 	    case VM_FAULT_READONLY:
 		//probs have to put a diff code
 		sys__exit(EFAULT);
+		
 	    case VM_FAULT_READ:
-		break;
 	    case VM_FAULT_WRITE:
 		break;
+		
 	    default:
 		splx(spl);
 		return EINVAL;
@@ -95,16 +95,15 @@ as_create(void)
 	}
 
 	#if OPT_A3
-
-	/* TODO: Implement better vm */
-	as->as_vbase1 = 0;
-	as->as_pbase1 = 0;
-	as->as_npages1 = 0;
-	as->as_vbase2 = 0;
-	as->as_pbase2 = 0;
-	as->as_npages2 = 0;
+	as->as_vbasec = 0;
+	as->as_npagec = 0;
+	as->as_pbasec = NULL;
+	
+	as->as_vbased = 0;
+	as->as_npaged = 0;
+	as->as_pbased = NULL;
+	
 	as->as_stackpbase = 0;
-
 	#endif
 
 	return as;
@@ -121,9 +120,11 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 		return ENOMEM;
 	}
 
-	#if OPT_A3
+	(void)pid;
+	(void)old;
 
-	/* TODO: Implement better vm */
+	#if OPT_A3
+/*
 	new->as_vbase1 = old->as_vbase1;
 	new->as_npages1 = old->as_npages1;
 	new->as_vbase2 = old->as_vbase2;
@@ -144,7 +145,8 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 		return result;
 	}
 
-	/*memmove((void *)PADDR_TO_KVADDR(new->as_pbase1),
+	/*
+	memmove((void *)PADDR_TO_KVADDR(new->as_pbase1),
 		(const void *)PADDR_TO_KVADDR(old->as_pbase1),
 		old->as_npages1*PAGE_SIZE);
 
@@ -154,12 +156,10 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 
 	memmove((void *)PADDR_TO_KVADDR(new->as_stackpbase),
 		(const void *)PADDR_TO_KVADDR(old->as_stackpbase),
-		STACKPAGES*PAGE_SIZE);*/
-	
+		STACKPAGES*PAGE_SIZE);
+	*/
 	#else
-
 	(void)old;
-
 	#endif
 	
 	*ret = new;
@@ -170,39 +170,24 @@ void
 as_destroy(struct addrspace *as)
 {
 	#if OPT_A3
-
-	/*
-	 * Clean up as needed.
-	 */
-
-	kfree(as);
-	
-	#else
-
-	kfree(as);
-
+	if(as->as_pbasec != NULL) kfree(as->as_pbasec);
+	if(as->as_pbased != NULL) kfree(as->as_pbased);
 	#endif
+	
+	kfree(as);
 }
 
 void
 as_activate(struct addrspace *as)
 {
 	#if OPT_A3
-
-	if(active_as == as) {
-		return;
-	}
-
+	if(active_as == as) { return; }
 	active_as = as;
-
-	tlb_invalidate();
-
 	#else
-
 	(void)as;  // suppress warning until code gets written
-	tlb_invalidate();
-
 	#endif
+	
+	tlb_invalidate();
 }
 
 /*
@@ -239,15 +224,19 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	(void)writeable;
 	(void)executable;
 
-	if (as->as_vbase1 == 0) {
-		as->as_vbase1 = vaddr;
-		as->as_npages1 = npages;
+	if (as->as_vbasec == 0) {
+		as->as_vbasec = vaddr;
+		as->as_npagec = npages;
+		as->as_pbasec = (paddr_t*) kmalloc(sizeof(paddr_t) * npages);
+		
 		return 0;
 	}
 
-	if (as->as_vbase2 == 0) {
-		as->as_vbase2 = vaddr;
-		as->as_npages2 = npages;
+	if (as->as_vbased == 0) {
+		as->as_vbased = vaddr;
+		as->as_npaged = npages;
+		as->as_pbased = (paddr_t*) kmalloc(sizeof(paddr_t) * npages);
+		
 		return 0;
 	}
 
@@ -258,7 +247,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	return EUNIMP;
 
 	#else	
-
 	(void)as;
 	(void)vaddr;
 	(void)sz;
@@ -278,30 +266,33 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 	as->t_loadingexe = 1;
 
 	/* TODO: Implement better vm */
-
-	assert(as->as_pbase1 == 0);
-	assert(as->as_pbase2 == 0);
+	assert(as->as_pbasec != NULL);
+	assert(as->as_pbased != NULL);
 	assert(as->as_stackpbase == 0);
 
 	int i, result;
 
-	for(i = 0; i < as->as_npages1; i++) {
-		result = pt_alloc_page(pid, as->as_vbase1 + i * PAGE_SIZE);
+	for(i = 0; i < as->as_npagec; i++) {
+		result = pt_alloc_page(pid, as->as_vbasec + i * PAGE_SIZE);
 		if(!result) {
 			return ENOMEM;
 		}
 	}
 
-	as->as_pbase1 = pt_get_paddr(pid, as->as_vbase1);
+	for(i = 0; i < as->as_npagec; i++) {
+		as->as_pbasec[i] = pt_get_paddr(pid, as->as_vbasec + i * PAGE_SIZE);
+	}
 
-	for(i = 0; i < as->as_npages2; i++) {
-		result = pt_alloc_page(pid, as->as_vbase2 + i * PAGE_SIZE);
+	for(i = 0; i < as->as_npaged; i++) {
+		result = pt_alloc_page(pid, as->as_vbased + i * PAGE_SIZE);
 		if(!result) {
 			return ENOMEM;
 		}
 	}
 
-	as->as_pbase2 = pt_get_paddr(pid, as->as_vbase2);
+	for(i = 0; i < as->as_npaged; i++) {
+		as->as_pbased[i] = pt_get_paddr(pid, as->as_vbased + i * PAGE_SIZE);
+	}
 
 	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	for(i = 0; i < STACKPAGES; i++) {
@@ -313,22 +304,6 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 
 	as->as_stackpbase = pt_get_paddr(pid, stackbase);
 	
-/*
-	as->as_pbase1 = getppages(as->as_npages1);
-	if (as->as_pbase1 == 0) {
-		return ENOMEM;
-	}
-
-	as->as_pbase2 = getppages(as->as_npages2);
-	if (as->as_pbase2 == 0) {
-		return ENOMEM;
-	}
-
-	as->as_stackpbase = getppages(STACKPAGES);
-	if (as->as_stackpbase == 0) {
-		return ENOMEM;
-	}
-*/
 	return 0;
 
 	#else
