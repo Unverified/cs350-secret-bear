@@ -3,6 +3,7 @@
 
 #include <vm.h>
 #include "opt-dumbvm.h"
+#include "opt-A3.h"
 
 struct vnode;
 
@@ -24,16 +25,19 @@ struct addrspace {
 	size_t as_npages2;
 	paddr_t as_stackpbase;
 #else
-	vaddr_t as_vbasec;
-	int as_npagec;
-	
-	vaddr_t as_vbased;
-	int as_npaged;
-	
 	int t_loadingexe;
+	struct array *as_segments;
 	struct vnode *as_elfbin;
 #endif /* OPT_DUMBVM */
 };
+
+#if OPT_A3
+struct segdef {
+	vaddr_t sd_vbase;
+	int sd_npage;
+	int sd_flags;
+};
+#endif
 
 /*
  * Functions in addrspace.c:
@@ -88,6 +92,12 @@ int				as_define_region(struct addrspace *as,
 									int executable);
 int				as_complete_load(struct addrspace *as);
 int				as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+
+
+/*SEGDEF*/
+struct segdef *sd_create(void);
+struct segdef *sd_copy(struct segdef *old);
+void sd_destroy(struct segdef *segdef);
 
 /*
  * Functions in loadelf.c

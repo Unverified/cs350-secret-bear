@@ -9,6 +9,7 @@
 #include <pt.h>
 #include <syscall.h>
 #include <coremap.h>
+#include <array.h>
 
 #include "opt-A3.h"
 
@@ -22,9 +23,29 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 
-struct addrspace *active_as = NULL;
+static struct addrspace *active_as = NULL;
 
 /******** Functions copied from dumb_vm **********/
+
+static 
+struct segdef *
+as_getseg_by_addr(struct addrspace *as, vaddr_t vbase)
+{
+	assert(as != NULL);
+	assert(as->as_segments != NULL);
+	
+	struct array *segs = as->as_segments;
+	int i,narr = array_getnum(segs);
+	for(i=0; i<narr; i++){
+		struct segdef *segdef = (struct segdef*) array_getguy(segs, i);
+		if(segdef->sd_vbase == vbase){
+			return segdef;
+		}
+		
+	}
+	
+	return NULL;
+}
 
 void
 vm_bootstrap(void)
@@ -57,7 +78,8 @@ free_kpages(vaddr_t addr)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	int spl, result;
+	int i, spl, result;
+	struct addrspace *as;
 
 	spl = splhigh();
 
@@ -65,20 +87,44 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	DEBUG(DB_VM, "vm: fault: 0x%x\n", faultaddress);
 
 	switch (faulttype) {
+		//Invalid access throw fault exception
 	    case VM_FAULT_READONLY:
-		//probs have to put a diff code
-		sys__exit(EFAULT);
-		
+			return EFAULT;
+		//Valid cases further action required
 	    case VM_FAULT_READ:
 	    case VM_FAULT_WRITE:
-		break;
-		
+			break;
 	    default:
-		splx(spl);
-		return EINVAL;
+			splx(spl);
+			return EINVAL;
 	}
 
+	as = curthread->t_vmspace;
+	if(as == NULL) return EFAULT;
+
+	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+	if(paddr & TLBLO_VALID){
+		//address is valid?
+	}else{
+		struct segdef *segdef = as_getseg_by_addr(as, faultaddress);
+		
+		if(segdef != NULL){
+			//this is a segment, newly loaded in
+			for(i = 0; i < segdef->sd_npage; i++) {
+				result = pt_alloc_page(curthread->t_pid, segdef->sd_vbase + i * PAGE_SIZE);
+				if(!result) {
+					return ENOMEM;
+				}
+			}
+		}else{
+			//stack
+			
+		}
+	}
+
+
 	result = tlb_write(faultaddress);
+
 
 	splx(spl);
 	return result;
@@ -94,12 +140,9 @@ as_create(void)
 	}
 
 	#if OPT_A3
-	as->as_vbasec = 0;
-	as->as_npagec = 0;
-	
-	as->as_vbased = 0;
-	as->as_npaged = 0;
-	
+	as->t_loadingexe = 0;
+	as->as_segments = array_create();
+	array_preallocate(as->as_segments, 2); //we typically use 2 segments right now
 	as->as_elfbin = NULL; //NO ELVES IN THE BIN
 	#endif
 
@@ -118,11 +161,14 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 	}
 
 	#if OPT_A3
-	new->as_vbasec = old->as_vbasec;
-	new->as_npagec = old->as_npagec;
-	new->as_vbased = old->as_vbased;
-	new->as_npaged = old->as_npaged;
-
+	int i, nseg=array_getnum(old->as_segments);
+	for(i=0;i<nseg; i++){
+		struct segdef *oldseg = (struct segdef*) array_getguy(old->as_segments,i);
+		struct segdef *newseg = sd_copy(oldseg);
+		if(newseg == NULL) return ENOMEM;
+	}
+	
+	
 	result = pt_copymem(curthread->t_pid, pid);
 	if(result) {
 		as_destroy(new);
@@ -141,7 +187,14 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 void
 as_destroy(struct addrspace *as)
 {
-
+	#if OPT_A3
+	int i, narr = array_getnum(as->as_segments);
+	for(i=0; i<narr; i++){
+		kfree(array_getguy(as->as_segments, i));
+	}
+	
+	array_destroy(as->as_segments);
+	#endif
 	kfree(as);
 }
 
@@ -173,6 +226,9 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	#if OPT_A3
+	assert(as != NULL);
+	assert(as->as_segments != NULL);
+
 	size_t npages; 
 
 	/* Align the region. First, the base... */
@@ -181,32 +237,25 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 
 	/* ...and now the length. */
 	sz = (sz + PAGE_SIZE - 1) & PAGE_FRAME;
-
 	npages = sz / PAGE_SIZE;
 
-	/* We don't use these - all pages are read-write */
-	(void)readable;
-	(void)writeable;
 	(void)executable;
 
-	if (as->as_vbasec == 0) {
-		as->as_vbasec = vaddr;
-		as->as_npagec = npages;
-		
-		return 0;
+	struct segdef *segdef;
+	segdef = sd_create();
+	if(segdef == NULL) return ENOMEM; 
+	segdef->sd_vbase = vaddr;
+	segdef->sd_npage = npages;
+	segdef->sd_flags = readable | writeable; //we dont deal with executable
+	
+	int result;
+	result = array_add(as->as_segments, segdef); 
+	if(result) {
+		sd_destroy(segdef);
+		return result;
 	}
 
-	if (as->as_vbased == 0) {
-		as->as_vbased = vaddr;
-		as->as_npaged = npages;
-		
-		return 0;
-	}
-
-	/*
-	 * Support for more than two regions is not available.
-	 */
-	kprintf("Warning: too many regions\n");
+	return 0;
 	#else	
 	(void)as;
 	(void)vaddr;
@@ -224,7 +273,7 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 	#if OPT_A3
 	as->t_loadingexe = 1;
 	int i, result;
-
+/*
 	for(i = 0; i < as->as_npagec; i++) {
 		result = pt_alloc_page(pid, as->as_vbasec + i * PAGE_SIZE);
 		if(!result) {
@@ -238,6 +287,7 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 			return ENOMEM;
 		}
 	}
+*/
 
 	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	for(i = 0; i < STACKPAGES; i++) {
@@ -246,8 +296,6 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 			return ENOMEM;
 		}
 	}
-
-
 	#else
 	(void)as;
 	#endif /* OPT_A3 */
@@ -271,7 +319,7 @@ int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
 	#if OPT_A3
-	(void)as;
+	assert(as != NULL);
 	#else
 	(void)as;
 	#endif /* OPT_A3 */
@@ -280,3 +328,33 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	return 0;
 }
 
+
+struct segdef*
+sd_create()
+{
+	struct segdef *segdef = kmalloc(sizeof(struct segdef));
+		
+	segdef->sd_vbase = 0;
+	segdef->sd_npage = 0;
+	segdef->sd_flags = 0;
+	
+	return segdef;
+}
+
+struct segdef*
+sd_copy(struct segdef *old)
+{
+	struct segdef* new;
+	
+	new->sd_vbase = old->sd_vbase;
+	new->sd_npage = old->sd_npage;
+	new->sd_flags = old->sd_flags;
+	
+	return new;
+}
+
+void
+sd_destroy(struct segdef *segdef)
+{
+	kfree(segdef);
+}

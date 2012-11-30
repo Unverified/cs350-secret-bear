@@ -50,6 +50,7 @@ int tlb_write(vaddr_t faultaddress) {
 		return result;
 	}
 
+/*
 	vbase1 = as->as_vbasec;
 	vtop1 = vbase1 + as->as_npagec * PAGE_SIZE;
 	vbase2 = as->as_vbased;
@@ -62,7 +63,7 @@ int tlb_write(vaddr_t faultaddress) {
 	    !(faultaddress >= stackbase && faultaddress < stacktop)) {
 		return EFAULT;
 	}
-
+*/
 	paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 
 	if(paddr == 0) {
@@ -118,6 +119,7 @@ int tlb_write(vaddr_t faultaddress) {
  * to the text segment should not be allowed 
 */
 void tlb_set_text_read_only(struct addrspace *as) {
+	/*
 	vaddr_t vbase1, vtop1;
 	paddr_t paddr;
 	u_int32_t ehi, elo;
@@ -135,6 +137,7 @@ void tlb_set_text_read_only(struct addrspace *as) {
 			TLB_Write(ehi, elo, i);
 		}
 	}
+	*/
 }
 
 void tlb_invalidate() {
