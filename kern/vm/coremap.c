@@ -7,6 +7,7 @@
 #include <pt.h>
 #include <synch.h>
 #include <coremap.h>
+#include <clock.h>
 
 struct lock *coremap_mutex;
 struct coremap_entry *coremap;

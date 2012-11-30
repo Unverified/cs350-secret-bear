@@ -26,13 +26,24 @@ swap_bootstrap()
 
 	swap_mutex = lock_create("swap_mutex");
 
+	// Set all entries to NULL in swap_array
+	int i;
+	for (i = 0; i < SWAP_MAX; i++)
+	{
+		swap_array[i] = NULL;
+	}
+
 	// open swap file
-	char *swapname = "/SWAPFILE";
+//	const char *swapname = "/SWAPFILE";
+ 	char * swapname = kstrdup("/SWAPFILE");
 	result = vfs_open(swapname, O_RDWR | O_CREAT, &swap_file);
 	if(result){
 		kprintf("Errorcode: %d\n", result);
+		kfree(swapname);
 		panic("Swap space could not be created, exiting...\n");
 	}
+
+	kfree(swapname);	
 }
 
 

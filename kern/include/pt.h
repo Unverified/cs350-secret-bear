@@ -1,6 +1,9 @@
 #ifndef VM_PT_H
 #define VM_PT_H
 
+#include <types.h>
+#include <synch.h>
+
 struct page_table_entry {
 	vaddr_t vaddr;
 	paddr_t paddr;

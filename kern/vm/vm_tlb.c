@@ -36,7 +36,7 @@ static int check_as(struct addrspace *as) {
 }
 
 int tlb_write(vaddr_t faultaddress) {
-	vaddr_t vbase1, vtop1, vbase2, vtop2, stackbase, stacktop;
+	vaddr_t vbase1, vtop1; //vbase2, vtop2, stackbase, stacktop;
 	paddr_t paddr;
 	u_int32_t writeable;
 	int i, result;
@@ -75,6 +75,7 @@ int tlb_write(vaddr_t faultaddress) {
 
 	writeable = TLBLO_DIRTY;
 
+	// Do we need this check?; vbase1 and vtop1 are not being defined
 	if (faultaddress >= vbase1 && faultaddress < vtop1) {
 		if(!as->t_loadingexe)
 			writeable = 0;
