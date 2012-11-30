@@ -17,8 +17,8 @@ Uses a static array on the kernel heap to track entries that are in swap file
 
 // For swap_array and tracking swap file stuff 
 struct swap_entry {
-	struct addrspace * as;	// owning address space
-	vaddr_t va;		// corresponding virtual address
+	vaddr_t va;		// virtual address
+	pid_t pid;		// owning pid
 	off_t offset; 		// location in swap file
 };
 

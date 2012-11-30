@@ -12,10 +12,10 @@
 #define SWAP_MAX (SWAP_SIZE/PAGE_SIZE)
 
 static struct vnode *swap_file;
-static struct lock * swap_mutex;
+struct lock * swap_mutex;
 
 // array of pointers to swap_entry s
-static struct swap_entry * swap_array[SWAP_MAX];
+struct swap_entry * swap_array[SWAP_MAX];
 
 // Note that each offset should be that of a page size in swap file
 
@@ -27,12 +27,16 @@ swap_bootstrap()
 
 	swap_mutex = lock_create("swap_mutex");
 
+	lock_acquire(swap_mutex);
+
 	// Set all entries to NULL in swap_array
 	int i;
 	for (i = 0; i < SWAP_MAX; i++)
 	{
 		swap_array[i] = NULL;
 	}
+
+	lock_release(swap_mutex);
 
 	// open swap file
 //	const char *swapname = "/SWAPFILE";
@@ -50,43 +54,56 @@ swap_bootstrap()
 void
 swap_shutdown()
 {
+	lock_acquire(swap_mutex);
+
 	// free any remaining swap_array entries
 	int i;
 	for (i = 0; i < SWAP_MAX; i++)
 	{
-		if (swap_array[i] != NULL)
-			swap_entry_remove(i);
+		if (swap_array[i] != NULL) {
+	        	kfree(swap_array[i]);	
+		}
 	}
+
+	lock_release(swap_mutex);
 
         vfs_close(swap_file);
 }
 
+/*
+
+// read swap file entry and put it into some free page table entry
+void swap_in(pid_t pid, vaddr_t va) {
+	int index;
+	index = swap_search(pid, va);
+	
+	
+}
+
+
+*/
+
 // initialize a new swap entry on the heap
-struct swap_entry * swap_entry_init(struct addrspace * as, vaddr_t va, off_t offset) {
+struct swap_entry * swap_entry_init(pid_t pid, vaddr_t va, off_t offset) {
 	struct swap_entry * result;
 	result = kmalloc(sizeof(struct swap_entry));
 	
-	result->as = as;
+	result->pid = pid;
 	result->va = va;
 	result->offset = offset;
 	
 	return result;
 }
 
-// remove single swap entry at some index in swap_array
-void swap_entry_remove(int i) {
-	kfree(swap_array[i]);
-}
-
 // find a certain entry in swap_array
 // return -1 when such an entry is not found, normal value between 0 and SWAP_MAX
-int swap_search (struct addrspace * as, vaddr_t va) {
+int swap_search (pid_t pid, vaddr_t va) {
 	int i;
 	int result = -1;
 
 	for (i = 0; i < SWAP_MAX; i++)
 	{
-		if ((swap_array[i]->as == as) && (swap_array[i]->va == va))
+		if ((swap_array[i]->pid == pid) && (swap_array[i]->va == va))
 		{
 			result = i;
 			break;
