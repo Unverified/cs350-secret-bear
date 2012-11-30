@@ -5,7 +5,6 @@ struct page_table_entry {
 	vaddr_t vaddr;
 	paddr_t paddr;
 	pid_t pid;
-	int isKernel;
 	//int writeable;
 	//int dirty;
 };
