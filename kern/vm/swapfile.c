@@ -19,6 +19,7 @@ static struct swap_entry * swap_array[SWAP_MAX];
 
 // Note that each offset should be that of a page size in swap file
 
+// Where to call this?
 void
 swap_bootstrap()
 {
@@ -46,9 +47,70 @@ swap_bootstrap()
 	kfree(swapname);	
 }
 
-
 void
 swap_shutdown()
 {
-	vfs_close(swap_file);
+	// free any remaining swap_array entries
+	int i;
+	for (i = 0; i < SWAP_MAX; i++)
+	{
+		if (swap_array[i] != NULL)
+			swap_entry_remove(i);
+	}
+
+        vfs_close(swap_file);
 }
+
+// initialize a new swap entry on the heap
+struct swap_entry * swap_entry_init(struct addrspace * as, vaddr_t va, off_t offset) {
+	struct swap_entry * result;
+	result = kmalloc(sizeof(struct swap_entry));
+	
+	result->as = as;
+	result->va = va;
+	result->offset = offset;
+	
+	return result;
+}
+
+// remove single swap entry at some index in swap_array
+void swap_entry_remove(int i) {
+	kfree(swap_array[i]);
+}
+
+// find a certain entry in swap_array
+// return -1 when such an entry is not found, normal value between 0 and SWAP_MAX
+int swap_search (struct addrspace * as, vaddr_t va) {
+	int i;
+	int result = -1;
+
+	for (i = 0; i < SWAP_MAX; i++)
+	{
+		if ((swap_array[i]->as == as) && (swap_array[i]->va == va))
+		{
+			result = i;
+			break;
+		}
+	}	
+	
+	return result;
+}
+
+// find next free entry in swap_array
+// returns -1 if none are found
+int swap_find_free() {
+	int i;
+	int result = -1;
+
+	for (i = 0; i < SWAP_MAX; i++) 
+	{
+		if (swap_array[i] == NULL)
+		{
+			result = i;
+			break;
+		}	
+	}
+
+	return result;
+}
+
