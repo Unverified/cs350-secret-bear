@@ -25,7 +25,7 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	pt_paddr = starting_paddr + coremap_size * PAGE_SIZE;
 	pt_vaddr = PADDR_TO_KVADDR(pt_paddr);
 	page_table = (struct page_table_entry *)pt_vaddr;
-	pt_size = (sizeof(struct page_table_entry)*total_pages + PAGE_SIZE)/PAGE_SIZE;
+	pt_size = (sizeof(struct page_table_entry)*total_pages + PAGE_SIZE - 1)/PAGE_SIZE;
 
 	//kprintf("total_pages: %d coremap_size: %d pt_size: %d\n", total_pages, coremap_size, pt_size);
 	//kprintf("starting_paddr: %p pt_paddr: %p coremap_vaddr: %p page_table: %p\n", starting_paddr, pt_paddr, PADDR_TO_KVADDR(starting_paddr), page_table);
@@ -34,7 +34,6 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	for(i=0; i<coremap_size; i++) {
 		page_table[i].paddr = starting_paddr + i * PAGE_SIZE;
 		page_table[i].vaddr = coremap_vaddr + i * PAGE_SIZE;
-		page_table[i].isKernel = 1;
 	}
 
 	/* Initialized the paget_table. */
@@ -44,10 +43,8 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 		if(i < pt_size + coremap_size) {
 			/* Put the page tables pages into to page table */
 			page_table[i].vaddr = pt_vaddr + (i - coremap_size) * PAGE_SIZE;
-			page_table[i].isKernel = 1;
 		} else {
 			page_table[i].vaddr = 0;
-			page_table[i].isKernel = 0;
 		}
 		
 	}
@@ -61,14 +58,15 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
 
 	page_index = get_free_page();
 	if(page_index == -1) {
-		//There are no free pages in memory, need to do page replacement to get a page
-		//For now return ENOMEM
+		page_index = get_fifo_page();
+		
+		//swap out page page_table[page_index]
+
 		return 0;
 	}
 
 	page_table[page_index].vaddr = vaddr;
 	page_table[page_index].pid = pid;
-	page_table[page_index].isKernel = 0;
 
 	return page_table[page_index].paddr;
 }
@@ -144,7 +142,6 @@ vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
 	for(i=0; i<npages; i++) {
 		page_table[i + page_index].vaddr = vaddr + i * PAGE_SIZE;
 		page_table[i + page_index].pid = pid;
-		page_table[i + page_index].isKernel = 1;
 	}
 
 	lock_release(pt_mutex);
@@ -190,7 +187,6 @@ void pt_free_pages(pid_t pid) {
 
 			page_table[i].vaddr = 0;
 			page_table[i].pid = 0;
-			page_table[i].isKernel = 0;
 			//page_table[i].writeable = 0;
 			//page_table[i].dirty = 0;
 			free_page(i);
@@ -206,14 +202,13 @@ void pt_free_kpage(vaddr_t vaddr) {
 	//lock_acquire(pt_mutex);
 
 	for(i = 0; i < total_pages; i++) {
-		if(page_table[i].isKernel) {
+		if(coremap_is_kernel(i)) {
 			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
 			vaddr_t vbottom = page_table[i].vaddr;
 			
 			if(vaddr >= vbottom && vaddr < vtop) {
 				page_table[i].vaddr = 0;
 				page_table[i].pid = 0;
-				page_table[i].isKernel = 0;
 				//page_table[i].writeable = 0;
 				//page_table[i].dirty = 0;
 
@@ -231,7 +226,7 @@ void pt_free_kpage(vaddr_t vaddr) {
 int pt_entry_count(int kernelOnly) {
 	int i, last_i = 0, count = 0;	
 	for(i=0; i < total_pages; i++) {
-		if((page_table[i].vaddr != 0 && kernelOnly && page_table[i].isKernel) ||
+		if((page_table[i].vaddr != 0 && kernelOnly && coremap_is_kernel(i)) ||
 		   (page_table[i].vaddr != 0 && !kernelOnly)) {
 			count++;
 			last_i = i;
