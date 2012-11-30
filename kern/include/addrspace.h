@@ -26,9 +26,11 @@ struct addrspace {
 	size_t as_npages2;
 	paddr_t as_stackpbase;
 #else
-	int t_loadingexe;
+	vaddr_t stackt;
+	vaddr_t stackb;
+
 	struct array *as_segments;
-	struct vnode *as_elfbin;
+	struct vnode *as_elfbin
 #endif /* OPT_DUMBVM */
 };
 

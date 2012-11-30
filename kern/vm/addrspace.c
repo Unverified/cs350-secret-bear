@@ -82,9 +82,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	if(as == NULL) return EFAULT;
 
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
-	if(paddr & TLBLO_VALID){
-		//address is valid?
-	}else{
+	if(!(paddr & TLBLO_VALID)){
 		struct segdef *segdef = sd_get_by_addr(as, faultaddress);
 		
 		if(segdef != NULL){
@@ -97,7 +95,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			}
 		}else{
 			//stack
+			/*
+			if(faultaddress < as->stackb || faultaddress > as->stackt){
+				return EFAULT;
+			}
+			return EFAULT;
 			
+			result = pt_alloc_page(curthread->t_pid, faultaddress);
+			if(!result) {
+				return ENOMEM;
+			}
+			*/
 		}
 	}
 
@@ -119,9 +127,9 @@ as_create(void)
 	}
 
 	#if OPT_A3
-	as->t_loadingexe = 0;
-	as->as_segments = array_create();
-	array_preallocate(as->as_segments, 2); //we typically use 2 segments right now
+	as->stackt = 0;
+	as->stackb = 0;
+	as->as_segments = NULL;
 	as->as_elfbin = NULL; //NO ELVES IN THE BIN
 	#endif
 
@@ -206,7 +214,14 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 {
 	#if OPT_A3
 	assert(as != NULL);
-	assert(as->as_segments != NULL);
+	if(vaddr >= USERSTACK){
+		return EINVAL;
+	}
+	
+	if(as->as_segments == NULL){
+		as->as_segments = array_create();
+		array_preallocate(as->as_segments, 2); //we typically use 2 segments right now
+	}
 
 	size_t npages; 
 
@@ -219,6 +234,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	npages = sz / PAGE_SIZE;
 
 	(void)executable;
+
 
 	struct segdef *segdef;
 	segdef = sd_create();
@@ -249,25 +265,12 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 int
 as_prepare_load(struct addrspace *as, pid_t pid)
 {
-	#if OPT_A3
-	as->t_loadingexe = 1;
-	int i, result;
-/*
-	for(i = 0; i < as->as_npagec; i++) {
-		result = pt_alloc_page(pid, as->as_vbasec + i * PAGE_SIZE);
-		if(!result) {
-			return ENOMEM;
-		}
-	}
-
-	for(i = 0; i < as->as_npaged; i++) {
-		result = pt_alloc_page(pid, as->as_vbased + i * PAGE_SIZE);
-		if(!result) {
-			return ENOMEM;
-		}
-	}
-*/
-
+	(void)as;
+	as->stackt = USERSTACK;
+	as->stackb = USERSTACK - STACKPAGES * PAGE_SIZE;
+	
+	int result,i;
+	
 	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
 	for(i = 0; i < STACKPAGES; i++) {
 		result = pt_alloc_page(pid, stackbase + i * PAGE_SIZE);
@@ -275,22 +278,14 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 			return ENOMEM;
 		}
 	}
-	#else
-	(void)as;
-	#endif /* OPT_A3 */
+
 	return 0;
 }
 
 int
 as_complete_load(struct addrspace *as)
 {
-	#if OPT_A3
-	as->t_loadingexe = 0;
-	tlb_set_text_read_only(as);
-	#else 
-	(void)as;
-	#endif /* OPT_A3 */
-	
+	(void)as;	
 	return 0;
 }
 

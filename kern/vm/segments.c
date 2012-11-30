@@ -36,10 +36,20 @@ struct segdef*
 sd_get_by_addr(struct addrspace *as, vaddr_t vbase)
 {
 	assert(as != NULL);
-	assert(as->as_segments != NULL);
+	
+	if(as->as_segments == NULL){
+		//no segments have been defined yet, im hoping this is a heap access
+		return NULL;
+	}
 	
 	struct array *segs = as->as_segments;
 	int i,narr = array_getnum(segs);
+	
+	if(narr < 0 || narr > 5){
+		return NULL;
+	}
+	
+	
 	for(i=0; i<narr; i++){
 		struct segdef *segdef = (struct segdef*) array_getguy(segs, i);
 		if(segdef->sd_vbase == vbase){

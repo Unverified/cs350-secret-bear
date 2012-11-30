@@ -36,9 +36,7 @@ static int check_as(struct addrspace *as) {
 }
 
 int tlb_write(vaddr_t faultaddress) {
-	vaddr_t vbase1, vtop1; //vbase2, vtop2, stackbase, stacktop;
 	paddr_t paddr;
-	u_int32_t writeable;
 	int i, result;
 	u_int32_t ehi, elo;
 	struct addrspace *as;
@@ -50,20 +48,6 @@ int tlb_write(vaddr_t faultaddress) {
 		return result;
 	}
 
-/*
-	vbase1 = as->as_vbasec;
-	vtop1 = vbase1 + as->as_npagec * PAGE_SIZE;
-	vbase2 = as->as_vbased;
-	vtop2 = vbase2 + as->as_npaged * PAGE_SIZE;
-	stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
-	stacktop = USERSTACK;
-
-	if (!(faultaddress >= vbase1 && faultaddress < vtop1) &&
-	    !(faultaddress >= vbase2 && faultaddress < vtop2) &&
-	    !(faultaddress >= stackbase && faultaddress < stacktop)) {
-		return EFAULT;
-	}
-*/
 	paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 
 	if(paddr == 0) {
@@ -71,16 +55,6 @@ int tlb_write(vaddr_t faultaddress) {
 		// This will never happen right now because on demand page loading is
 		// not yet implemented, we just load every page into the page table.
 		return EFAULT;
-	}
-
-	writeable = TLBLO_DIRTY;
-
-	// Do we need this check?; vbase1 and vtop1 are not being defined
-	if (faultaddress >= vbase1 && faultaddress < vtop1) {
-		if(!as->t_loadingexe)
-			writeable = 0;
-
-		
 	}
 
 	/* make sure it's page-aligned */
@@ -107,7 +81,7 @@ int tlb_write(vaddr_t faultaddress) {
 	}
 
 	ehi = faultaddress;
-	elo = paddr | writeable | TLBLO_VALID;
+	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
 	TLB_Write(ehi, elo, i);
 
 	vmstats_inc(0);
