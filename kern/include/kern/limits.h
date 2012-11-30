@@ -13,4 +13,7 @@
 /* The amount of file descriptors avalible per thread */
 #define MAX_FD 10
 
+/* Maximum size of the swap file (in bytes) */
+#define SWAP_SIZE 9437184
+
 #endif /* _KERN_LIMITS_H_ */
