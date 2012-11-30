@@ -39,7 +39,6 @@ swap_bootstrap()
 	lock_release(swap_mutex);
 
 	// open swap file
-//	const char *swapname = "/SWAPFILE";
  	char * swapname = kstrdup("/SWAPFILE");
 	result = vfs_open(swapname, O_RDWR | O_CREAT, &swap_file);
 	if(result){

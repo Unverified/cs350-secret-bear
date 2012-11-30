@@ -10,6 +10,7 @@
 #include <syscall.h>
 #include <coremap.h>
 #include <array.h>
+#include <segments.h>
 
 #include "opt-A3.h"
 
@@ -24,28 +25,6 @@
  */
 
 static struct addrspace *active_as = NULL;
-
-/******** Functions copied from dumb_vm **********/
-
-static 
-struct segdef *
-as_getseg_by_addr(struct addrspace *as, vaddr_t vbase)
-{
-	assert(as != NULL);
-	assert(as->as_segments != NULL);
-	
-	struct array *segs = as->as_segments;
-	int i,narr = array_getnum(segs);
-	for(i=0; i<narr; i++){
-		struct segdef *segdef = (struct segdef*) array_getguy(segs, i);
-		if(segdef->sd_vbase == vbase){
-			return segdef;
-		}
-		
-	}
-	
-	return NULL;
-}
 
 void
 vm_bootstrap(void)
@@ -106,7 +85,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	if(paddr & TLBLO_VALID){
 		//address is valid?
 	}else{
-		struct segdef *segdef = as_getseg_by_addr(as, faultaddress);
+		struct segdef *segdef = sd_get_by_addr(as, faultaddress);
 		
 		if(segdef != NULL){
 			//this is a segment, newly loaded in
@@ -326,35 +305,4 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 	
 	*stackptr = USERSTACK;
 	return 0;
-}
-
-
-struct segdef*
-sd_create()
-{
-	struct segdef *segdef = kmalloc(sizeof(struct segdef));
-		
-	segdef->sd_vbase = 0;
-	segdef->sd_npage = 0;
-	segdef->sd_flags = 0;
-	
-	return segdef;
-}
-
-struct segdef*
-sd_copy(struct segdef *old)
-{
-	struct segdef* new;
-	
-	new->sd_vbase = old->sd_vbase;
-	new->sd_npage = old->sd_npage;
-	new->sd_flags = old->sd_flags;
-	
-	return new;
-}
-
-void
-sd_destroy(struct segdef *segdef)
-{
-	kfree(segdef);
 }
