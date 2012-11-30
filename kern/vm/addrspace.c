@@ -29,7 +29,7 @@ struct addrspace *active_as = NULL;
 void
 vm_bootstrap(void)
 {
-	/* Do nothing. */
+	coremap_bootstrap();
 }
 
 /* Allocate/free some kernel-space virtual pages */
@@ -83,7 +83,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	splx(spl);
 	return result;
 }
-
 /*************************************************/
 
 struct addrspace *
@@ -100,6 +99,8 @@ as_create(void)
 	
 	as->as_vbased = 0;
 	as->as_npaged = 0;
+	
+	as->as_elfbin = NULL; //NO ELVES IN THE BIN
 	#endif
 
 	return as;
@@ -116,11 +117,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 		return ENOMEM;
 	}
 
-	(void)pid;
-	(void)old;
-
 	#if OPT_A3
-
 	new->as_vbasec = old->as_vbasec;
 	new->as_npagec = old->as_npagec;
 	new->as_vbased = old->as_vbased;
@@ -133,8 +130,9 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 	}
 
 	#else
+	(void)pid;
 	(void)old;
-	#endif
+	#endif /* OPT_A3 */
 	
 	*ret = new;
 	return 0;
@@ -143,6 +141,7 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 void
 as_destroy(struct addrspace *as)
 {
+
 	kfree(as);
 }
 
@@ -150,11 +149,11 @@ void
 as_activate(struct addrspace *as)
 {
 	#if OPT_A3
-	if(active_as == as) { return; }
+	if(active_as == as) return;
 	active_as = as;
 	#else
 	(void)as;  // suppress warning until code gets written
-	#endif
+	#endif /* OPT_A3 */
 	
 	tlb_invalidate();
 }
@@ -174,9 +173,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	#if OPT_A3
-
-	/* TODO: Implement better vm */
-
 	size_t npages; 
 
 	/* Align the region. First, the base... */
@@ -210,9 +206,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	/*
 	 * Support for more than two regions is not available.
 	 */
-	kprintf("dumbvm: Warning: too many regions\n");
-	return EUNIMP;
-
+	kprintf("Warning: too many regions\n");
 	#else	
 	(void)as;
 	(void)vaddr;
@@ -220,20 +214,15 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	(void)readable;
 	(void)writeable;
 	(void)executable;
+	#endif /* OPT_A3 */
 	return EUNIMP;
-
-	#endif
 }
 
 int
 as_prepare_load(struct addrspace *as, pid_t pid)
 {
 	#if OPT_A3
-
 	as->t_loadingexe = 1;
-
-	/* TODO: Implement better vm */
-
 	int i, result;
 
 	for(i = 0; i < as->as_npagec; i++) {
@@ -258,54 +247,36 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 		}
 	}
 
-	return 0;
 
 	#else
-
 	(void)as;
+	#endif /* OPT_A3 */
 	return 0;
-
-	#endif
 }
 
 int
 as_complete_load(struct addrspace *as)
 {
 	#if OPT_A3
-
 	as->t_loadingexe = 0;
-
 	tlb_set_text_read_only(as);
-	
-	return 0;
-
 	#else 
-
 	(void)as;
-	return 0;
+	#endif /* OPT_A3 */
 	
-	#endif
+	return 0;
 }
 
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
 	#if OPT_A3
-
-	/* TODO: Implement better vm */
-
-	*stackptr = USERSTACK;
-	return 0;
-	
-	#else
-
 	(void)as;
-
-	/* Initial user-level stack pointer */
-	*stackptr = USERSTACK;
+	#else
+	(void)as;
+	#endif /* OPT_A3 */
 	
+	*stackptr = USERSTACK;
 	return 0;
-
-	#endif
 }
 

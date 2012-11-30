@@ -9,8 +9,7 @@ struct vnode;
 /* 
  * Address space - data structure associated with the virtual memory
  * space of a process.
- *
- * You write this.
+ * 
  */
 
 #define STACKPAGES    12
@@ -32,7 +31,8 @@ struct addrspace {
 	int as_npaged;
 	
 	int t_loadingexe;
-#endif
+	struct vnode *as_elfbin;
+#endif /* OPT_DUMBVM */
 };
 
 /*
@@ -70,18 +70,24 @@ struct addrspace {
  */
 
 struct addrspace *as_create(void);
-int               as_copy(struct addrspace *src, struct addrspace **ret, pid_t pid);
-void              as_activate(struct addrspace *);
-void              as_destroy(struct addrspace *);
 
-int               as_define_region(struct addrspace *as, 
-				   vaddr_t vaddr, size_t sz,
-				   int readable, 
-				   int writeable,
-				   int executable);
-int		  as_prepare_load(struct addrspace *as, pid_t pid);
-int		  as_complete_load(struct addrspace *as);
-int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
+#if OPT_DUMBVM
+int				as_copy(struct addrspace *src, struct addrspace **ret);
+int				as_prepare_load(struct addrspace *as);
+#else
+int				as_copy(struct addrspace *src, struct addrspace **ret, pid_t pid);
+int				as_prepare_load(struct addrspace *as, pid_t pid);
+#endif /* OPT_DUMBVM */
+
+void			as_activate(struct addrspace *);
+void			as_destroy(struct addrspace *);
+int				as_define_region(struct addrspace *as, 
+									vaddr_t vaddr, size_t sz,
+									int readable, 
+									int writeable,
+									int executable);
+int				as_complete_load(struct addrspace *as);
+int				as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 
 /*
  * Functions in loadelf.c
@@ -89,8 +95,5 @@ int               as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
  *               address space. Returns the entry point (initial PC)
  *               in the space pointed to by ENTRYPOINT.
  */
-
 int load_elf(struct vnode *v, vaddr_t *entrypoint);
-
-
 #endif /* _ADDRSPACE_H_ */
