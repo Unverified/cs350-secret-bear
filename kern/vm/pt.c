@@ -8,6 +8,7 @@
 #include <pt.h>
 #include <coremap.h>
 #include <swapfile.h>
+#include <uw-vmstats.h>
 
 struct lock *pt_mutex;
 struct page_table_entry *page_table;

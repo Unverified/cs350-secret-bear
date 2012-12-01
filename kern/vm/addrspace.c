@@ -14,6 +14,7 @@
 #include <vnode.h>
 #include <vfs.h>
 #include <swapfile.h>
+#include <uw-vmstats.h>
 
 #include "opt-A3.h"
 
@@ -88,6 +89,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 
 	if(paddr == 0){
+                // incement Page Faults (Disk) for stat tracking
+                vmstats_inc(6);
+
 		paddr = swap_in(curthread->t_pid, faultaddress);
 	}
 	
