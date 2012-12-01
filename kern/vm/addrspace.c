@@ -93,11 +93,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			struct segdef *segdef = sd_get_by_addr(as, faultaddress);
 			
 			if(segdef != NULL){
+				//loading a new segment into memory
 				result = pt_alloc_page(curthread->t_pid, faultaddress);
 				if(!result) {
 					return ENOMEM;
 				}
-				
+				//need to be able to write to tlb until completely loaded
 				result = tlb_write(faultaddress, TLBLO_DIRTY);
 				if(result){
 					splx(spl);
@@ -111,15 +112,19 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					//we will at most load a single page into memory
 					segsize = PAGE_SIZE;
 				}
-					
+			
+				//now that space for the segment has been allocated, put the segment in memory
 				result = load_segment(as->as_elfbin, offset, faultaddress, PAGE_SIZE,
 										segsize, 0);
+				if(result) {
+					splx(spl);
+					return result;
+				}
 			}else{
 				//stack
 				if(faultaddress < as->stackb || faultaddress > as->stackt){
 					return EFAULT;
 				}
-				return EFAULT;
 				
 				result = pt_alloc_page(curthread->t_pid, faultaddress);
 				if(!result) {
@@ -151,7 +156,7 @@ as_create(void)
 	as->stackt = 0;
 	as->stackb = 0;
 	as->as_segments = NULL;
-	as->as_elfbin = NULL; //NO ELVES IN THE BIN
+	as->as_elfbin = NULL;
 	#endif
 
 	return as;
@@ -294,7 +299,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 	segdef->sd_vbase = vaddr;
 	segdef->sd_npage = npages;
 	segdef->sd_segsz = size;
-	segdef->sd_flags = readable | writeable; //too cool for executable
+	segdef->sd_flags = writeable; //too cool for executable
 	segdef->sd_offset = offset;
 	
 	
@@ -317,21 +322,10 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 }
 
 int
-as_prepare_load(struct addrspace *as, pid_t pid)
+as_prepare_load(struct addrspace *as)
 {
-	(void)as;
 	as->stackt = USERSTACK;
 	as->stackb = USERSTACK - STACKPAGES * PAGE_SIZE;
-	
-	int result,i;
-	
-	vaddr_t stackbase = USERSTACK - STACKPAGES * PAGE_SIZE;
-	for(i = 0; i < STACKPAGES; i++) {
-		result = pt_alloc_page(pid, stackbase + i * PAGE_SIZE);
-		if(!result) {
-			return ENOMEM;
-		}
-	}
 	
 	return 0;
 }

@@ -211,17 +211,13 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		}
 	}
 
-	#if OPT_A3
-	result = as_prepare_load(curthread->t_vmspace, curthread->t_pid);
-	if (result) {
-		return result;
-	}
-	#else
 	result = as_prepare_load(curthread->t_vmspace);
 	if (result) {
 		return result;
 	}
-	
+
+	#if OPT_A3
+	#else
 	/*
 	 * Now actually load each segment.
 	 */
