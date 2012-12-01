@@ -11,7 +11,7 @@
 /* Maximum number of pages in the swap file */
 #define SWAP_MAX (SWAP_SIZE/PAGE_SIZE)
 
-static struct vnode *swap_file;
+struct vnode * swap_file;
 struct lock * swap_mutex;
 
 // array of pointers to swap_entry s
@@ -69,18 +69,93 @@ swap_shutdown()
         vfs_close(swap_file);
 }
 
-/*
-
-// read swap file entry and put it into some free page table entry
-void swap_in(pid_t pid, vaddr_t va) {
+// read swap file entry and put it into some free physical page 
+// Also update page table entry (delete swap entry?)
+int swap_in(pid_t pid, vaddr_t va) {
 	int index;
+
+	lock_acquire(swap_mutex);
 	index = swap_search(pid, va);
-	
-	
+
+	if (index == -1) {
+		panic("swap_search provided index of -1; could not find page in swap file");
+	}
+
+	// get data from swap file and store in k_data
+	struct uio uio;
+	char * k_data = kmalloc(sizeof(char)*PAGE_SIZE);
+
+	mk_kuio(&uio, k_data, PAGE_SIZE, swap_array[index]->offset, UIO_READ);	
+
+	int result = VOP_READ(swap_file, &uio);
+
+	// error in read
+        if(result){
+                kfree(k_data);
+                return result;
+        }
+
+	lock_release(swap_mutex);
+
+	// allocate page of memory
+	paddr_t pa;
+	pa = pt_alloc_page(swap_array[index]->pid, swap_array[index]->va); 
+
+	// copy memory from holder to physical page
+	memmove((void *) PADDR_TO_KVADDR(k_data), (const void *)PADDR_TO_KVADDR(pa), PAGE_SIZE);
+
+	// remove swap table entry
+	kfree(swap_array[index]);
+
+	return 0;
 }
 
+// write physical page's content to swap file
+// evict corresponding page table entry and shoot down TLB entry
+// return -1 in case there's no more room
+int swap_out(pid_t pid, vaddr_t va) {
 
-*/
+	// write physical page to swapfile at offset = index * PAGE_SIZE
+	struct uio uio;
+	char * k_data = kmalloc(sizeof(char)*PAGE_SIZE);
+
+
+        // get physical address from page table...
+        paddr_t pa;
+        pa = pt_get_paddr(pid, va);
+
+        // copy from pa to temporary k_data
+        memmove((void *) PADDR_TO_KVADDR(pa), (const void *)PADDR_TO_KVADDR(k_data), PAGE_SIZE);
+
+        lock_acquire(swap_mutex);
+        
+	// find free swap file entry
+        int index = swap_find_free();
+
+        // no more swap space
+        if (index == -1) {
+                return -1;
+        }	
+	
+	mk_kuio(&uio, k_data, PAGE_SIZE, index*PAGE_SIZE, UIO_WRITE);	
+	
+	int result = VOP_WRITE(swap_file, &uio);
+
+	// error in write
+        if(result){
+                kfree(k_data);
+                return result;
+        }
+
+	swap_array[index] = swap_entry_init(pid, va, index*PAGE_SIZE);
+
+	// call evict function which will update page table entry etc
+	pt_free_page_swap (pid, va);
+	
+	lock_release(swap_mutex);
+
+	return 0;
+}
 
 // initialize a new swap entry on the heap
 struct swap_entry * swap_entry_init(pid_t pid, vaddr_t va, off_t offset) {

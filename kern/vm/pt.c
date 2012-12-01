@@ -177,6 +177,50 @@ int pt_copymem(pid_t curpid, pid_t pid) {
 	return 0;
 }
 
+/* 
+Finds the index of some PID, vaddr in the page table; called by swap_out 
+Returns -1 on error
+*/
+int pt_search_swap (pid_t pid, vaddr_t va) {
+	int i;
+	int index = -1;
+
+	lock_acquire(pt_mutex);
+
+        for (i=0; i < total_pages; i++) {
+                if ((page_table[i].pid == pid) && (page_table[i].vaddr == va)) {
+                        index = i;
+                        break;
+                }
+        }
+
+	lock_release(pt_mutex);
+
+	return index;
+}
+
+/* Frees a specific page; called by swap_out */
+void pt_free_page_swap (pid_t pid, vaddr_t va) {
+	int i;
+	int index;
+	
+	lock_acquire(pt_mutex);
+
+	for (i=0; i < total_pages; i++) {
+		if ((page_table[i].pid == pid) && (page_table[i].vaddr == va)) {
+			index = i;
+			break;
+		}	
+	}
+
+	page_table[index].vaddr = 0;
+	page_table[index].pid = 0;
+	page_table[index].npages = 0;
+	free_page(index);
+
+	lock_release(pt_mutex);
+}
+
 void pt_free_pages(pid_t pid) {
 	int i;
 
