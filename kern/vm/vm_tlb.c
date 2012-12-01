@@ -36,7 +36,7 @@ static int check_as(struct addrspace *as) {
 }
 
 /* dirtybit: TLBLO_DIRTY if page is writeable, 0 if not */
-int tlb_write(vaddr_t faultaddress, u_int32_t dirtybit) {
+int tlb_write(vaddr_t faultaddress, int *storeloc) {
 	paddr_t paddr;
 	int i, result;
 	u_int32_t ehi, elo;
@@ -75,11 +75,14 @@ int tlb_write(vaddr_t faultaddress, u_int32_t dirtybit) {
 	}
 
 	ehi = faultaddress;
-	elo = paddr | dirtybit | TLBLO_VALID;
+	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
 	TLB_Write(ehi, elo, i);
 
 	vmstats_inc(0);
 
+	if(storeloc != NULL){
+		*storeloc = i;
+	}
 	return 0;
 }
 
@@ -87,26 +90,17 @@ int tlb_write(vaddr_t faultaddress, u_int32_t dirtybit) {
  * After an executable is loaded in the users address space, all writes 
  * to the text segment should not be allowed 
 */
-void tlb_set_text_read_only(struct addrspace *as) {
-	/*
-	vaddr_t vbase1, vtop1;
-	paddr_t paddr;
+int tlb_set_read_only(struct segdef *sd, int storeloc) {
 	u_int32_t ehi, elo;
-	int i;
-
-	vbase1 = as->as_vbasec;
-	vtop1 = vbase1 + as->as_npagec * PAGE_SIZE;
-
-	for (i=0; i<NUM_TLB; i++) {
-		TLB_Read(&ehi, &elo, i);
-		if (elo & TLBLO_VALID && ehi >= vbase1 && ehi < vtop1) {
-			// Nick for future ref, this is how you drop a flag
-			elo &= ~TLBLO_DIRTY;
+	
+	TLB_Read(&ehi, &elo, storeloc);
+	if (elo & TLBLO_VALID && ehi >= sd->sd_vbase && ehi < sd->sd_vbase + sd->sd_segsz) {
+		elo &= ~TLBLO_DIRTY;
 			
-			TLB_Write(ehi, elo, i);
-		}
+		TLB_Write(ehi, elo, storeloc);
+		return 0;
 	}
-	*/
+	return EFAULT;
 }
 
 void tlb_invalidate() {

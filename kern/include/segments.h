@@ -10,8 +10,8 @@ struct segdef {
 	vaddr_t sd_vbase;
 	size_t sd_segsz;
 	int sd_npage;
+	int sd_flags;
 	off_t sd_offset;
-	char sd_flags;
 };
 
 struct segdef *sd_create(void);

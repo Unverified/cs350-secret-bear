@@ -104,7 +104,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					return ENOMEM;
 				}
 				//need to be able to write to tlb until completely loaded
-				result = tlb_write(faultaddress, TLBLO_DIRTY);
+				int storeloc;
+				result = tlb_write(faultaddress, &storeloc);
 				if(result){
 					splx(spl);
 					return result;
@@ -112,6 +113,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				size_t segsize = (segdef->sd_vbase + segdef->sd_segsz) - faultaddress; //rebase the size off of the current fault spot
 				int curpage = (faultaddress - segdef->sd_vbase) / PAGE_SIZE;
 				off_t offset = segdef->sd_offset + curpage * PAGE_SIZE;
+				
 				
 				if(segsize > PAGE_SIZE){
 					//we will at most load a single page into memory
@@ -125,6 +127,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					splx(spl);
 					return result;
 				}
+				
+				if((segdef->sd_flags & TLBLO_DIRTY) == 0){
+					result = tlb_set_read_only(segdef, storeloc);
+				}
 			}else{
 				//stack
 				if(faultaddress < as->stackb || faultaddress > as->stackt){
@@ -136,12 +142,12 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					return ENOMEM;
 				}
 
-				result = tlb_write(faultaddress, TLBLO_DIRTY);
+				result = tlb_write(faultaddress, NULL);
 			}		
 		}	
 	}else{
 		//address is in the page table, put back into the TLB
-		result = tlb_write(faultaddress, TLBLO_DIRTY);
+		result = tlb_write(faultaddress, NULL);
 	}
 		
 	splx(spl);
@@ -266,7 +272,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 		 int readable, int writeable, int executable)
 {
 	#if OPT_A3
-	int result;
+	int result, flags = 0;
 	assert(as != NULL);
 	if(vaddr > USERSTACK){
 		return EINVAL;
@@ -304,7 +310,14 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 	segdef->sd_vbase = vaddr;
 	segdef->sd_npage = npages;
 	segdef->sd_segsz = size;
-	segdef->sd_flags = writeable; //too cool for executable
+
+	if(writeable){
+		flags = TLBLO_DIRTY;
+	}
+	(void) readable;  //Why would I want a memory segment I cant read from?
+	(void) executable;//Too cool for executable
+	
+	segdef->sd_flags = flags;
 	segdef->sd_offset = offset;
 	
 	
