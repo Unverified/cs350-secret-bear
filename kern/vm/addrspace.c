@@ -130,6 +130,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			}		
 		}	
 	}else{
+		//address is in the page table, put back into the TLB
 		result = tlb_write(faultaddress, TLBLO_DIRTY);
 	}
 		

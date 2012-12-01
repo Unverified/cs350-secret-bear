@@ -19,6 +19,7 @@
 #include <vnode.h>
 #include "opt-A3.h"
 #include <segments.h>
+#include <uw-vmstats.h>
 
 /*
  * Load a segment at virtual address VADDR. The segment in memory
@@ -88,6 +89,11 @@ load_segment(struct vnode *v, off_t offset, vaddr_t vaddr,
 		u.uio_resid += fillamt;
 		result = uiomovezeros(fillamt, &u);
 	}
+	
+	#if OPT_A3
+	vmstats_inc(6);
+	vmstats_inc(7);
+	#endif
 	
 	return result;
 }
