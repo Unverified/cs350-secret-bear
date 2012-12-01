@@ -34,6 +34,7 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	for(i=0; i<coremap_size; i++) {
 		page_table[i].paddr = starting_paddr + i * PAGE_SIZE;
 		page_table[i].vaddr = coremap_vaddr + i * PAGE_SIZE;
+		page_table[i].npages = coremap_vaddr - i;
 	}
 
 	/* Initialized the paget_table. */
@@ -43,6 +44,7 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 		if(i < pt_size + coremap_size) {
 			/* Put the page tables pages into to page table */
 			page_table[i].vaddr = pt_vaddr + (i - coremap_size) * PAGE_SIZE;
+			page_table[i].npages = total_pages - (i - coremap_size);
 		} else {
 			page_table[i].vaddr = 0;
 		}
@@ -67,6 +69,7 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
 
 	page_table[page_index].vaddr = vaddr;
 	page_table[page_index].pid = pid;
+	page_table[page_index].npages = 1;
 
 	return page_table[page_index].paddr;
 }
@@ -142,6 +145,7 @@ vaddr_t pt_alloc_kpages(pid_t pid, int npages) {
 	for(i=0; i<npages; i++) {
 		page_table[i + page_index].vaddr = vaddr + i * PAGE_SIZE;
 		page_table[i + page_index].pid = pid;
+		page_table[i + page_index].npages = npages - i;
 	}
 
 	lock_release(pt_mutex);
@@ -180,15 +184,9 @@ void pt_free_pages(pid_t pid) {
 
 	for(i = 0; i < total_pages; i++) {
 		if(page_table[i].pid == pid) {
-			//if(page_table[i].dirty) {
-				// Page has been motified, need to write it to disk
-				// TODO: Implement this when on demand page loading is implemented
-			//}
-
 			page_table[i].vaddr = 0;
 			page_table[i].pid = 0;
-			//page_table[i].writeable = 0;
-			//page_table[i].dirty = 0;
+			page_table[i].npages = 0;
 			free_page(i);
 		}
 	}
@@ -197,28 +195,27 @@ void pt_free_pages(pid_t pid) {
 }
 
 void pt_free_kpage(vaddr_t vaddr) {
-	int i;
-
-	//lock_acquire(pt_mutex);
+	int i, j;
 
 	for(i = 0; i < total_pages; i++) {
 		if(coremap_is_kernel(i)) {
 			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
 			vaddr_t vbottom = page_table[i].vaddr;
 			
-			if(vaddr >= vbottom && vaddr < vtop) {
-				page_table[i].vaddr = 0;
-				page_table[i].pid = 0;
-				//page_table[i].writeable = 0;
-				//page_table[i].dirty = 0;
+			if(vaddr == page_table[i].vaddr) {
+				int npages = page_table[i].npages;
 
-				free_page(i);
+				for(j=0; j<npages; j++) {
+					page_table[i+j].vaddr = 0;
+					page_table[i+j].pid = 0;
+					page_table[i+j].npages = 0;
+
+					free_page(i+j);
+				}
 				break;
 			}
 		}
 	}
-
-	//lock_release(pt_mutex);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
