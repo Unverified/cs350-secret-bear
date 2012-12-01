@@ -109,6 +109,7 @@ boot(void)
 
 	#if OPT_A3
 	vmstats_init();
+	swap_bootstrap();
 	#endif
 }
 

@@ -85,6 +85,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+
+	if(paddr == 0){
+		paddr = swap_in(curthread->t_pid, faultaddress);
+	}
 	
 	if(paddr == 0){
 		if(faultaddress > USERSTACK){

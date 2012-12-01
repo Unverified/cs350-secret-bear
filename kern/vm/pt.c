@@ -7,6 +7,7 @@
 #include <vm.h>
 #include <pt.h>
 #include <coremap.h>
+#include <swapfile.h>
 
 struct lock *pt_mutex;
 struct page_table_entry *page_table;
@@ -59,11 +60,11 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
 	int page_index;
 
 	page_index = get_free_page();
+	//kprintf("got free page: %d\n", page_index);
 	if(page_index == -1) {
 		page_index = get_fifo_page();
-		
-		//swap out page page_table[page_index]
-
+		kprintf("got fifo page: %d\n", page_index);
+		swap_out(page_table[page_index].pid, page_table[page_index].paddr, page_table[page_index].vaddr);
 		return 0;
 	}
 
@@ -204,7 +205,7 @@ void pt_free_page_swap (pid_t pid, vaddr_t va) {
 	int i;
 	int index;
 	
-	lock_acquire(pt_mutex);
+	//lock_acquire(pt_mutex);
 
 	for (i=0; i < total_pages; i++) {
 		if ((page_table[i].pid == pid) && (page_table[i].vaddr == va)) {
@@ -218,13 +219,13 @@ void pt_free_page_swap (pid_t pid, vaddr_t va) {
 	page_table[index].npages = 0;
 	free_page(index);
 
-	lock_release(pt_mutex);
+	//lock_release(pt_mutex);
 }
 
 void pt_free_pages(pid_t pid) {
 	int i;
 
-	lock_acquire(pt_mutex);
+	//lock_acquire(pt_mutex);
 
 	for(i = 0; i < total_pages; i++) {
 		if(page_table[i].pid == pid) {
@@ -235,7 +236,7 @@ void pt_free_pages(pid_t pid) {
 		}
 	}
 
-	lock_release(pt_mutex);
+	//lock_release(pt_mutex);
 }
 
 void pt_free_kpage(vaddr_t vaddr) {

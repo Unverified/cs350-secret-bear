@@ -25,11 +25,11 @@ struct swap_entry {
 
 // Write selected page table's page to file, then evict entry
 // Also updates swap_array
-int swap_out (pid_t pid, vaddr_t va);
+int swap_out (pid_t pid, paddr_t pa, vaddr_t va);
 
 // Read some virtual page from swap file and place it in some physical page
 // Also modify relative page table entry
-int swap_in (pid_t pid, vaddr_t va);
+paddr_t swap_in (pid_t pid, vaddr_t va);
 
 // Helper functions
 struct swap_entry * swap_entry_init(pid_t pid, vaddr_t va, off_t offset);
