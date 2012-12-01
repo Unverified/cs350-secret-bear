@@ -1,0 +1,303 @@
+-----------------------------------------
+
+OS/161 base system version 1.11
+Copyright (c) 2000, 2001, 2002, 2003
+   President and Fellows of Harvard College.  All rights reserved.
+
+CS350_037 system version 0 (ASST3 #65)
+
+Cpu is MIPS r2000/r3000
+1836k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+hardclock on ltimer0 (100 hz)
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+pseudorand0 (virtual)
+
+OS/161 kernel: p uw-testbin/vm-mix1
+Checking uninitialized array1
+Checking uninitialized array2
+FAILED in file vm-mix1.c at line 107: array2[4] = 4194384 != 0
+Operation took 3.902632577 seconds
+OS/161 kernel: q
+Shutting down.
+VMSTATS:
+VMSTAT                TLB Faults =        401
+VMSTAT      TLB Faults with Free =         64
+VMSTAT   TLB Faults with Replace =        337
+VMSTAT         TLB Invalidations =          1
+VMSTAT               TLB Reloads =          0
+VMSTAT      Page Faults (Zeroed) =          0
+VMSTAT        Page Faults (Disk) =        780
+VMSTAT      Page Faults from ELF =        389
+VMSTAT Page Faults from Swapfile =        391
+VMSTAT           Swapfile Writes =          0
+VMSTAT TLB Faults with Free + TLB Faults with Replace = 401
+VMSTAT TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) = 780
+WARNING: TLB Faults (401) != TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) (780)
+VMSTAT ELF File reads + Swapfile reads = 780
+The system is halted.
+-----------------------------------------
+
+OS/161 base system version 1.11
+Copyright (c) 2000, 2001, 2002, 2003
+   President and Fellows of Harvard College.  All rights reserved.
+
+CS350_037 system version 0 (ASST3 #65)
+
+Cpu is MIPS r2000/r3000
+1836k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+hardclock on ltimer0 (100 hz)
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+pseudorand0 (virtual)
+
+OS/161 kernel: p uw-testbin/vm-mix2
+Checking uninitialized array1
+Checking uninitialized array2
+FAILED in file vm-mix2.c at line 115: array2[4] = 4194384 != 0
+Operation took 3.901292937 seconds
+OS/161 kernel: q
+Shutting down.
+VMSTATS:
+VMSTAT                TLB Faults =        401
+VMSTAT      TLB Faults with Free =         64
+VMSTAT   TLB Faults with Replace =        337
+VMSTAT         TLB Invalidations =          1
+VMSTAT               TLB Reloads =          0
+VMSTAT      Page Faults (Zeroed) =          0
+VMSTAT        Page Faults (Disk) =        780
+VMSTAT      Page Faults from ELF =        389
+VMSTAT Page Faults from Swapfile =        391
+VMSTAT           Swapfile Writes =          0
+VMSTAT TLB Faults with Free + TLB Faults with Replace = 401
+VMSTAT TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) = 780
+WARNING: TLB Faults (401) != TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) (780)
+VMSTAT ELF File reads + Swapfile reads = 780
+The system is halted.
+-----------------------------------------
+
+OS/161 base system version 1.11
+Copyright (c) 2000, 2001, 2002, 2003
+   President and Fellows of Harvard College.  All rights reserved.
+
+CS350_037 system version 0 (ASST3 #65)
+
+Cpu is MIPS r2000/r3000
+1836k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+hardclock on ltimer0 (100 hz)
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+pseudorand0 (virtual)
+
+OS/161 kernel: p testbin/sort
+testbin/sort: Passed.
+Operation took 7.920457457 seconds
+OS/161 kernel: q
+Shutting down.
+VMSTATS:
+VMSTAT                TLB Faults =       1954
+VMSTAT      TLB Faults with Free =         64
+VMSTAT   TLB Faults with Replace =       1890
+VMSTAT         TLB Invalidations =          1
+VMSTAT               TLB Reloads =          0
+VMSTAT      Page Faults (Zeroed) =          0
+VMSTAT        Page Faults (Disk) =        583
+VMSTAT      Page Faults from ELF =        291
+VMSTAT Page Faults from Swapfile =        292
+VMSTAT           Swapfile Writes =          0
+VMSTAT TLB Faults with Free + TLB Faults with Replace = 1954
+VMSTAT TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) = 583
+WARNING: TLB Faults (1954) != TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) (583)
+VMSTAT ELF File reads + Swapfile reads = 583
+The system is halted.
+-----------
+
+OS/161 base system version 1.11
+Copyright (c) 2000, 2001, 2002, 2003
+   President and Fellows of Harvard College.  All rights reserved.
+
+CS350_037 system version 0 (ASST3 #65)
+
+Cpu is MIPS r2000/r3000
+1836k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+hardclock on ltimer0 (100 hz)
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+pseudorand0 (virtual)
+
+OS/161 kernel: p testbin/matmult
+matmult finished.
+answer is: 8772192 (should be 8772192)
+Passed.
+Operation took 4.908599457 seconds
+OS/161 kernel: q
+Shutting down.
+VMSTATS:
+VMSTAT                TLB Faults =        820
+VMSTAT      TLB Faults with Free =         64
+VMSTAT   TLB Faults with Replace =        756
+VMSTAT         TLB Invalidations =          1
+VMSTAT               TLB Reloads =          0
+VMSTAT      Page Faults (Zeroed) =          0
+VMSTAT        Page Faults (Disk) =        763
+VMSTAT      Page Faults from ELF =        381
+VMSTAT Page Faults from Swapfile =        382
+VMSTAT           Swapfile Writes =          0
+VMSTAT TLB Faults with Free + TLB Faults with Replace = 820
+VMSTAT TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) = 763
+WARNING: TLB Faults (820) != TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) (763)
+VMSTAT ELF File reads + Swapfile reads = 763
+The system is halted.
+-----------
+
+OS/161 base system version 1.11
+Copyright (c) 2000, 2001, 2002, 2003
+   President and Fellows of Harvard College.  All rights reserved.
+
+CS350_037 system version 0 (ASST3 #65)
+
+Cpu is MIPS r2000/r3000
+1836k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+hardclock on ltimer0 (100 hz)
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+pseudorand0 (virtual)
+
+OS/161 kernel: p testbin/huge
+Entering the huge program - I will stress test your VM
+got fifo page: 15
+Fatal user mode trap 3 (TLB miss on store, epc 0x400084, vaddr 0x106d0010)
+Operation took 4.911899497 seconds
+OS/161 kernel: q
+Shutting down.
+VMSTATS:
+VMSTAT                TLB Faults =        444
+VMSTAT      TLB Faults with Free =         64
+VMSTAT   TLB Faults with Replace =        380
+VMSTAT         TLB Invalidations =          1
+VMSTAT               TLB Reloads =          0
+VMSTAT      Page Faults (Zeroed) =          0
+VMSTAT        Page Faults (Disk) =        876
+VMSTAT      Page Faults from ELF =        437
+VMSTAT Page Faults from Swapfile =        439
+VMSTAT           Swapfile Writes =          1
+VMSTAT TLB Faults with Free + TLB Faults with Replace = 444
+VMSTAT TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) = 876
+WARNING: TLB Faults (444) != TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) (876)
+VMSTAT ELF File reads + Swapfile reads = 876
+The system is halted.
+-----------
+
+OS/161 base system version 1.11
+Copyright (c) 2000, 2001, 2002, 2003
+   President and Fellows of Harvard College.  All rights reserved.
+
+CS350_037 system version 0 (ASST3 #65)
+
+Cpu is MIPS r2000/r3000
+1836k physical memory available
+Device probe...
+lamebus0 (system main bus)
+emu0 at lamebus0
+ltrace0 at lamebus0
+ltimer0 at lamebus0
+hardclock on ltimer0 (100 hz)
+beep0 at ltimer0
+rtclock0 at ltimer0
+lrandom0 at lamebus0
+random0 at lrandom0
+lhd0 at lamebus0
+lhd1 at lamebus0
+lser0 at lamebus0
+con0 at lser0
+pseudorand0 (virtual)
+
+OS/161 kernel: p uw-testbin/vm-mix1
+Checking uninitialized array1
+Checking uninitialized array2
+FAILED in file vm-mix1.c at line 107: array2[4] = 4194384 != 0
+Operation took 3.902780457 seconds
+OS/161 kernel:  p uw-testbin/vm-mix1
+Checking uninitialized array1
+Checking uninitialized array2
+FAILED in file vm-mix1.c at line 107: array2[4] = 4194384 != 0
+Operation took 4.016443400 seconds
+OS/161 kernel:  p uw-testbin/vm-mix1
+Checking uninitialized array1
+Checking uninitialized array2
+FAILED in file vm-mix1.c at line 107: array2[4] = 4194384 != 0
+Operation took 4.014856320 seconds
+OS/161 kernel:  q
+Shutting down.
+VMSTATS:
+VMSTAT                TLB Faults =       1203
+VMSTAT      TLB Faults with Free =        192
+VMSTAT   TLB Faults with Replace =       1011
+VMSTAT         TLB Invalidations =          3
+VMSTAT               TLB Reloads =          0
+VMSTAT      Page Faults (Zeroed) =          0
+VMSTAT        Page Faults (Disk) =       2340
+VMSTAT      Page Faults from ELF =       1167
+VMSTAT Page Faults from Swapfile =       1173
+VMSTAT           Swapfile Writes =          0
+VMSTAT TLB Faults with Free + TLB Faults with Replace = 1203
+VMSTAT TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) = 2340
+WARNING: TLB Faults (1203) != TLB Reloads + Page Faults (Zeroed) + Page Faults (Disk) (2340)
+VMSTAT ELF File reads + Swapfile reads = 2340
+The system is halted.
+-----------

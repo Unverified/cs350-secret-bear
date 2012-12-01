@@ -7,6 +7,7 @@
 #include <vfs.h>
 #include <swapfile.h>
 #include <vm.h>
+#include <uw-vmstats.h>
 
 /* Maximum number of pages in the swap file */
 #define SWAP_MAX (SWAP_SIZE/PAGE_SIZE)
@@ -76,6 +77,10 @@ swap_shutdown()
 // read swap file entry and put it into some free physical page 
 // Also update page table entry (delete swap entry?)
 paddr_t swap_in(pid_t pid, vaddr_t va) {
+        
+	// increment "Page Faults from Swapfile" for stat counter
+        vmstats_inc(8);
+
 	int index;
 
 	lock_acquire(swap_mutex);
@@ -122,6 +127,9 @@ paddr_t swap_in(pid_t pid, vaddr_t va) {
 // evict corresponding page table entry and shoot down TLB entry
 // return -1 in case there's no more room
 int swap_out(pid_t pid, paddr_t pa, vaddr_t va) {
+
+        // increase "Swapfile Writes" stat count
+        vmstats_inc(9);
 
 	// write physical page to swapfile at offset = index * PAGE_SIZE
 	struct uio uio;
