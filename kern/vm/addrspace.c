@@ -13,6 +13,7 @@
 #include <segments.h>
 #include <vnode.h>
 #include <vfs.h>
+#include <swapfile.h>
 
 #include "opt-A3.h"
 

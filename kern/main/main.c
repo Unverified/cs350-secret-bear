@@ -20,6 +20,7 @@
 #include <filecalls.h>
 #include <uw-vmstats.h>
 #include <coremap.h>
+#include <swapfile.h>
 #include "opt-A0.h"
 #include "opt-A3.h"
 

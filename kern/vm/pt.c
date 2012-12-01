@@ -61,6 +61,8 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
 
 	page_index = get_free_page();
 	//kprintf("got free page: %d\n", page_index);
+	
+	// out of physical memory
 	if(page_index == -1) {
 		page_index = get_fifo_page();
 		kprintf("got fifo page: %d\n", page_index);
@@ -244,8 +246,8 @@ void pt_free_kpage(vaddr_t vaddr) {
 
 	for(i = 0; i < total_pages; i++) {
 		if(coremap_is_kernel(i)) {
-			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
-			vaddr_t vbottom = page_table[i].vaddr;
+			// vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
+			// vaddr_t vbottom = page_table[i].vaddr;
 			
 			if(vaddr == page_table[i].vaddr) {
 				int npages = page_table[i].npages;

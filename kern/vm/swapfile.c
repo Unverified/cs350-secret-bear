@@ -136,16 +136,16 @@ int swap_out(pid_t pid, paddr_t pa, vaddr_t va) {
 
         // no more swap space
         if (index == -1) {
-
 		lock_release(swap_mutex);
-                return -1;
+                panic("Out of swap space");
+		return -1;
         }	
 	
 	mk_kuio(&uio, k_data, PAGE_SIZE, index*PAGE_SIZE, UIO_WRITE);	
 	
 	int result = VOP_WRITE(swap_file, &uio);
 
-	// error in write
+	// error in write (could not write to kernel mem)
         if(result){
 		lock_release(swap_mutex);
                 return result;
