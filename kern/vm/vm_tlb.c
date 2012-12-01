@@ -51,13 +51,6 @@ int tlb_write(vaddr_t faultaddress, u_int32_t dirtybit) {
 
 	paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 
-	if(paddr == 0) {
-		// There was a page fault, we need to load the page into memory.
-		// This will never happen right now because on demand page loading is
-		// not yet implemented, we just load every page into the page table.
-		return EFAULT;
-	}
-
 	/* make sure it's page-aligned */
 	assert((paddr & PAGE_FRAME)==paddr);
 
