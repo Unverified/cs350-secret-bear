@@ -35,7 +35,8 @@ static int check_as(struct addrspace *as) {
 	return 0;
 }
 
-int tlb_write(vaddr_t faultaddress) {
+/* dirtybit: TLBLO_DIRTY if page is writeable, 0 if not */
+int tlb_write(vaddr_t faultaddress, u_int32_t dirtybit) {
 	paddr_t paddr;
 	int i, result;
 	u_int32_t ehi, elo;
@@ -81,7 +82,7 @@ int tlb_write(vaddr_t faultaddress) {
 	}
 
 	ehi = faultaddress;
-	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+	elo = paddr | dirtybit | TLBLO_VALID;
 	TLB_Write(ehi, elo, i);
 
 	vmstats_inc(0);

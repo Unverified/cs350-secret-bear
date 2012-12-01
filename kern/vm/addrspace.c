@@ -110,7 +110,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 
 
-	result = tlb_write(faultaddress);
+	result = tlb_write(faultaddress, TLBLO_DIRTY);
 
 
 	splx(spl);
