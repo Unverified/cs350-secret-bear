@@ -22,7 +22,7 @@ sd_create()
 struct segdef*
 sd_copy(struct segdef *old)
 {
-	struct segdef* new;
+	struct segdef* new = sd_create();
 	
 	new->sd_vbase = old->sd_vbase;
 	new->sd_npage = old->sd_npage;

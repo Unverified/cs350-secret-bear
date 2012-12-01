@@ -79,7 +79,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 
 	as = curthread->t_vmspace;
-	if(as == NULL) return EFAULT;
+	if(as == NULL) {
+		return EFAULT;
+	}
 
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 	if(!(paddr & TLBLO_VALID)){
@@ -148,14 +150,25 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 	}
 
 	#if OPT_A3
+	new->as_segments = array_create();
+	if(new->as_segments==NULL) {
+		return ENOMEM;
+	}
+
 	int i, nseg=array_getnum(old->as_segments);
 	for(i=0;i<nseg; i++){
 		struct segdef *oldseg = (struct segdef*) array_getguy(old->as_segments,i);
 		struct segdef *newseg = sd_copy(oldseg);
 		if(newseg == NULL) return ENOMEM;
+
+		result = array_add(new->as_segments, newseg); 
+		if(result) {
+			sd_destroy(newseg);
+			as_destroy(new);
+			return result;
+		}
 	}
-	
-	
+
 	result = pt_copymem(curthread->t_pid, pid);
 	if(result) {
 		as_destroy(new);
@@ -213,6 +226,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 		 int readable, int writeable, int executable)
 {
 	#if OPT_A3
+	int result;
 	assert(as != NULL);
 	if(vaddr >= USERSTACK){
 		return EINVAL;
@@ -220,7 +234,14 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	
 	if(as->as_segments == NULL){
 		as->as_segments = array_create();
-		array_preallocate(as->as_segments, 2); //we typically use 2 segments right now
+		if(as->as_segments==NULL) {
+			return ENOMEM;
+		}
+
+		result = array_preallocate(as->as_segments, 2); //we typically use 2 segments right now
+		if(result) {
+			return result;
+		}
 	}
 
 	size_t npages; 
@@ -243,7 +264,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	segdef->sd_npage = npages;
 	segdef->sd_flags = readable | writeable; //we dont deal with executable
 	
-	int result;
 	result = array_add(as->as_segments, segdef); 
 	if(result) {
 		sd_destroy(segdef);
