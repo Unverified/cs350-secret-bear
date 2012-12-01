@@ -176,11 +176,20 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return ENOEXEC;
 		}
 
+	
+	#if OPT_A3
+		result = as_define_region(curthread->t_vmspace,
+					  ph.p_vaddr, ph.p_memsz, offset,
+					  ph.p_flags & PF_R,
+					  ph.p_flags & PF_W,
+					  ph.p_flags & PF_X);
+	#else
 		result = as_define_region(curthread->t_vmspace,
 					  ph.p_vaddr, ph.p_memsz,
 					  ph.p_flags & PF_R,
 					  ph.p_flags & PF_W,
 					  ph.p_flags & PF_X);
+	#endif
 		if (result) {
 			return result;
 		}
@@ -199,6 +208,9 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 	 * Now actually load each segment.
 	 */
 
+	//we want to do this on demand
+//	#if OPT_A3
+//	#else
 	for (i=0; i<eh.e_phnum; i++) {
 		off_t offset = eh.e_phoff + i*eh.e_phentsize;
 		mk_kuio(&ku, &ph, sizeof(ph), offset, UIO_READ);
@@ -232,7 +244,8 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return result;
 		}
 	}
-
+//	#endif
+	
 	result = as_complete_load(curthread->t_vmspace);
 	if (result) {
 		return result;

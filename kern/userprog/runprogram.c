@@ -15,6 +15,7 @@
 #include <vfs.h>
 #include <test.h>
 #include "opt-A2.h"
+#include "opt-A3.h"
 
 /*
  * Load program "progname" and start running it in usermode.
@@ -57,7 +58,12 @@ runprogram(char *progname, int nargs, char **args)
 	}
 
 	/* Done with the file now. */
+	#if OPT_A3
+	assert(curthread->t_vmspace != NULL);
+	curthread->t_vmspace->as_elfbin = v;
+	#else
 	vfs_close(v);
+	#endif
 
 	/* Define the user stack in the address space */
 	result = as_define_stack(curthread->t_vmspace, &stackptr);

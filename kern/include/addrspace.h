@@ -30,7 +30,7 @@ struct addrspace {
 	vaddr_t stackb;
 
 	struct array *as_segments;
-	struct vnode *as_elfbin
+	struct vnode *as_elfbin;
 #endif /* OPT_DUMBVM */
 };
 
@@ -73,18 +73,23 @@ struct addrspace *as_create(void);
 #if OPT_DUMBVM
 int				as_copy(struct addrspace *src, struct addrspace **ret);
 int				as_prepare_load(struct addrspace *as);
-#else
-int				as_copy(struct addrspace *src, struct addrspace **ret, pid_t pid);
-int				as_prepare_load(struct addrspace *as, pid_t pid);
-#endif /* OPT_DUMBVM */
-
-void			as_activate(struct addrspace *);
-void			as_destroy(struct addrspace *);
 int				as_define_region(struct addrspace *as, 
 									vaddr_t vaddr, size_t sz,
 									int readable, 
 									int writeable,
 									int executable);
+#else
+int				as_copy(struct addrspace *src, struct addrspace **ret, pid_t pid);
+int				as_prepare_load(struct addrspace *as, pid_t pid);
+int				as_define_region(struct addrspace *as, 
+									vaddr_t vaddr, size_t sz, off_t offset,
+									int readable, 
+									int writeable,
+									int executable);
+#endif /* OPT_DUMBVM */
+
+void			as_activate(struct addrspace *);
+void			as_destroy(struct addrspace *);
 int				as_complete_load(struct addrspace *as);
 int				as_define_stack(struct addrspace *as, vaddr_t *initstackptr);
 

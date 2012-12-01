@@ -7,6 +7,7 @@ struct addrspace;
 struct segdef {
 	vaddr_t sd_vbase;
 	int sd_npage;
+	off_t sd_offset;
 	char sd_flags;
 };
 

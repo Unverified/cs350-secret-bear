@@ -15,6 +15,7 @@ sd_create()
 	segdef->sd_vbase = 0;
 	segdef->sd_npage = 0;
 	segdef->sd_flags = 0;
+	segdef->sd_offset = 0;
 	
 	return segdef;
 }
@@ -27,6 +28,7 @@ sd_copy(struct segdef *old)
 	new->sd_vbase = old->sd_vbase;
 	new->sd_npage = old->sd_npage;
 	new->sd_flags = old->sd_flags;
+	new->sd_offset = old->sd_offset;
 	
 	return new;
 }
@@ -46,13 +48,16 @@ sd_get_by_addr(struct addrspace *as, vaddr_t vbase)
 	int i,narr = array_getnum(segs);
 	
 	if(narr < 0 || narr > 5){
-		return NULL;
+		panic("something probably leaked into your memory again, baka");
 	}
 	
 	
 	for(i=0; i<narr; i++){
 		struct segdef *segdef = (struct segdef*) array_getguy(segs, i);
-		if(segdef->sd_vbase == vbase){
+		vaddr_t segb = segdef->sd_vbase;
+		vaddr_t segt = segb + STACKPAGES * PAGE_SIZE;
+		
+		if(segb <= vbase && vbase <= segt){
 			return segdef;
 		}
 		

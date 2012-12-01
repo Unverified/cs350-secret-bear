@@ -11,6 +11,8 @@
 #include <coremap.h>
 #include <array.h>
 #include <segments.h>
+#include <vnode.h>
+#include <vfs.h>
 
 #include "opt-A3.h"
 
@@ -83,33 +85,37 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
-	if(!(paddr & TLBLO_VALID)){
-		struct segdef *segdef = sd_get_by_addr(as, faultaddress);
-		
-		if(segdef != NULL){
-			//this is a segment, newly loaded in
-			for(i = 0; i < segdef->sd_npage; i++) {
-				result = pt_alloc_page(curthread->t_pid, segdef->sd_vbase + i * PAGE_SIZE);
+	if(faultaddress <= USERSTACK){	//dont do things if its not in user space
+		paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+	
+		if(paddr == 0){
+			struct segdef *segdef = sd_get_by_addr(as, faultaddress);
+			
+			if(segdef != NULL){
+				//this is a segment, newly loaded in
+				for(i = 0; i < segdef->sd_npage; i++) {
+					result = pt_alloc_page(curthread->t_pid, segdef->sd_vbase + i * PAGE_SIZE);
+				//	result = pt_alloc_page(curthread->t_pid, faultaddress);
+					if(!result) {
+						return ENOMEM;
+					}
+				}
+			}else{
+				//stack
+				if(faultaddress < as->stackb || faultaddress > as->stackt){
+					return EFAULT;
+				}
+				return EFAULT;
+				
+				result = pt_alloc_page(curthread->t_pid, faultaddress);
 				if(!result) {
 					return ENOMEM;
 				}
 			}
-		}else{
-			//stack
-			/*
-			if(faultaddress < as->stackb || faultaddress > as->stackt){
-				return EFAULT;
-			}
-			return EFAULT;
-			
-			result = pt_alloc_page(curthread->t_pid, faultaddress);
-			if(!result) {
-				return ENOMEM;
-			}
-			*/
 		}
 	}
+	
+	
 
 
 	result = tlb_write(faultaddress, TLBLO_DIRTY);
@@ -175,6 +181,10 @@ as_copy(struct addrspace *old, struct addrspace **ret, pid_t pid)
 		return result;
 	}
 
+	new->as_elfbin = old->as_elfbin;
+	VOP_INCOPEN(new->as_elfbin);
+	VOP_INCREF(new->as_elfbin);
+	
 	#else
 	(void)pid;
 	(void)old;
@@ -188,12 +198,19 @@ void
 as_destroy(struct addrspace *as)
 {
 	#if OPT_A3
-	int i, narr = array_getnum(as->as_segments);
-	for(i=0; i<narr; i++){
-		kfree(array_getguy(as->as_segments, i));
+	if(as->as_segments != NULL){
+		int i, narr = array_getnum(as->as_segments);
+		for(i=0; i<narr; i++){
+			kfree(array_getguy(as->as_segments, i));
+		}
+		array_destroy(as->as_segments);
 	}
 	
-	array_destroy(as->as_segments);
+	if(as->as_elfbin != NULL){
+		vfs_close(as->as_elfbin);
+		as->as_elfbin = NULL;
+	}
+	
 	#endif
 	kfree(as);
 }
@@ -222,7 +239,7 @@ as_activate(struct addrspace *as)
  * want to implement them.
  */
 int
-as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
+as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 		 int readable, int writeable, int executable)
 {
 	#if OPT_A3
@@ -262,7 +279,9 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 	if(segdef == NULL) return ENOMEM; 
 	segdef->sd_vbase = vaddr;
 	segdef->sd_npage = npages;
+	segdef->sd_offset = offset;
 	segdef->sd_flags = readable | writeable; //we dont deal with executable
+	
 	
 	result = array_add(as->as_segments, segdef); 
 	if(result) {
@@ -298,7 +317,7 @@ as_prepare_load(struct addrspace *as, pid_t pid)
 			return ENOMEM;
 		}
 	}
-
+	
 	return 0;
 }
 
