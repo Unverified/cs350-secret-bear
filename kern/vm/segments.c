@@ -13,6 +13,7 @@ sd_create()
 	struct segdef *segdef = kmalloc(sizeof(struct segdef));
 		
 	segdef->sd_vbase = 0;
+	segdef->sd_segsz = 0;
 	segdef->sd_npage = 0;
 	segdef->sd_flags = 0;
 	segdef->sd_offset = 0;
@@ -26,6 +27,7 @@ sd_copy(struct segdef *old)
 	struct segdef* new = sd_create();
 	
 	new->sd_vbase = old->sd_vbase;
+	new->sd_segsz = old->sd_segsz;
 	new->sd_npage = old->sd_npage;
 	new->sd_flags = old->sd_flags;
 	new->sd_offset = old->sd_offset;
@@ -55,7 +57,7 @@ sd_get_by_addr(struct addrspace *as, vaddr_t vbase)
 	for(i=0; i<narr; i++){
 		struct segdef *segdef = (struct segdef*) array_getguy(segs, i);
 		vaddr_t segb = segdef->sd_vbase;
-		vaddr_t segt = segb + STACKPAGES * PAGE_SIZE;
+		vaddr_t segt = segb + segdef->sd_segsz;
 		
 		if(segb <= vbase && vbase <= segt){
 			return segdef;

@@ -18,6 +18,7 @@
 #include <curthread.h>
 #include <vnode.h>
 #include "opt-A3.h"
+#include <segments.h>
 
 /*
  * Load a segment at virtual address VADDR. The segment in memory
@@ -33,7 +34,6 @@
  * change this code to not use uiomove, be sure to check for this case
  * explicitly.
  */
-static
 int
 load_segment(struct vnode *v, off_t offset, vaddr_t vaddr, 
 	     size_t memsize, size_t filesize,
@@ -42,6 +42,13 @@ load_segment(struct vnode *v, off_t offset, vaddr_t vaddr,
 	struct uio u;
 	int result;
 	size_t fillamt;
+
+	#if OPT_A3
+	if(memsize != PAGE_SIZE){
+		panic("You're doing it wrong\n");
+	}
+	#endif
+
 
 	if (filesize > memsize) {
 		kprintf("ELF: warning: segment filesize > segment memsize\n");
@@ -64,11 +71,14 @@ load_segment(struct vnode *v, off_t offset, vaddr_t vaddr,
 		return result;
 	}
 
+	#if OPT_A3
+	#else
 	if (u.uio_resid != 0) {
 		/* short read; problem with executable? */
 		kprintf("ELF: short read on segment - file truncated?\n");
 		return ENOEXEC;
 	}
+	#endif
 
 	/* Fill the rest of the memory space (if any) with zeros */
 	fillamt = memsize - filesize;
@@ -177,19 +187,19 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 		}
 
 	
-	#if OPT_A3
+		#if OPT_A3
 		result = as_define_region(curthread->t_vmspace,
-					  ph.p_vaddr, ph.p_memsz, offset,
+					  ph.p_vaddr, ph.p_memsz, ph.p_offset,
 					  ph.p_flags & PF_R,
 					  ph.p_flags & PF_W,
 					  ph.p_flags & PF_X);
-	#else
+		#else
 		result = as_define_region(curthread->t_vmspace,
 					  ph.p_vaddr, ph.p_memsz,
 					  ph.p_flags & PF_R,
 					  ph.p_flags & PF_W,
 					  ph.p_flags & PF_X);
-	#endif
+		#endif
 		if (result) {
 			return result;
 		}
@@ -197,20 +207,18 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 
 	#if OPT_A3
 	result = as_prepare_load(curthread->t_vmspace, curthread->t_pid);
-	#else
-	result = as_prepare_load(curthread->t_vmspace);
-	#endif
 	if (result) {
 		return result;
 	}
-
+	#else
+	result = as_prepare_load(curthread->t_vmspace);
+	if (result) {
+		return result;
+	}
+	
 	/*
 	 * Now actually load each segment.
 	 */
-
-	//we want to do this on demand
-//	#if OPT_A3
-//	#else
 	for (i=0; i<eh.e_phnum; i++) {
 		off_t offset = eh.e_phoff + i*eh.e_phentsize;
 		mk_kuio(&ku, &ph, sizeof(ph), offset, UIO_READ);
@@ -244,7 +252,7 @@ load_elf(struct vnode *v, vaddr_t *entrypoint)
 			return result;
 		}
 	}
-//	#endif
+	#endif
 	
 	result = as_complete_load(curthread->t_vmspace);
 	if (result) {

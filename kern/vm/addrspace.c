@@ -85,7 +85,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	if(faultaddress <= USERSTACK){	//dont do things if its not in user space
+	//if(faultaddress <= USERSTACK){	//dont do things if its not in user space
 		paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 	
 		if(paddr == 0){
@@ -93,13 +93,30 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			
 			if(segdef != NULL){
 				//this is a segment, newly loaded in
-				for(i = 0; i < segdef->sd_npage; i++) {
-					result = pt_alloc_page(curthread->t_pid, segdef->sd_vbase + i * PAGE_SIZE);
-				//	result = pt_alloc_page(curthread->t_pid, faultaddress);
+				//for(i = 0; i < segdef->sd_npage; i++) {
+				//	result = pt_alloc_page(curthread->t_pid, segdef->sd_vbase + i * PAGE_SIZE);
+					result = pt_alloc_page(curthread->t_pid, faultaddress);
 					if(!result) {
 						return ENOMEM;
 					}
-				}
+				//}
+					
+					result = tlb_write(faultaddress, TLBLO_DIRTY);
+					if(result){
+						splx(spl);
+						return result;
+					}
+					size_t segsize = (segdef->sd_vbase + segdef->sd_segsz) - faultaddress; //rebase the size off of the current fault spot
+					int curpage = (faultaddress - segdef->sd_vbase) / PAGE_SIZE;
+					off_t offset = segdef->sd_offset + curpage * PAGE_SIZE;
+					
+					if(segsize > PAGE_SIZE){
+						//we will at most load a single page into memory
+						segsize = PAGE_SIZE;
+					}
+					
+					result = load_segment(as->as_elfbin, offset, faultaddress, PAGE_SIZE,
+											segsize, 0);
 			}else{
 				//stack
 				if(faultaddress < as->stackb || faultaddress > as->stackt){
@@ -111,15 +128,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				if(!result) {
 					return ENOMEM;
 				}
+
+				result = tlb_write(faultaddress, TLBLO_DIRTY);
 			}
+		}else{
+			result = tlb_write(faultaddress, TLBLO_DIRTY);
 		}
-	}
-	
-	
-
-
-	result = tlb_write(faultaddress, TLBLO_DIRTY);
-
+	//}
 
 	splx(spl);
 	return result;
@@ -245,7 +260,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 	#if OPT_A3
 	int result;
 	assert(as != NULL);
-	if(vaddr >= USERSTACK){
+	if(vaddr > USERSTACK){
 		return EINVAL;
 	}
 	
@@ -261,6 +276,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 		}
 	}
 
+	size_t size = sz;
 	size_t npages; 
 
 	/* Align the region. First, the base... */
@@ -279,8 +295,9 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz, off_t offset,
 	if(segdef == NULL) return ENOMEM; 
 	segdef->sd_vbase = vaddr;
 	segdef->sd_npage = npages;
+	segdef->sd_segsz = size;
+	segdef->sd_flags = readable | writeable; //too cool for executable
 	segdef->sd_offset = offset;
-	segdef->sd_flags = readable | writeable; //we dont deal with executable
 	
 	
 	result = array_add(as->as_segments, segdef); 
