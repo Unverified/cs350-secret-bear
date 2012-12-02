@@ -13,7 +13,7 @@
 static char *hargv[2] = { (char *)"hog", NULL };
 
 #define MAXPROCS  6
-static int pids[MAXPROCS], npids;
+static int pids[MAXPROCS], npids = 0;
 
 static
 void

@@ -91,6 +91,9 @@ load_segment(struct vnode *v, off_t offset, vaddr_t vaddr,
 	}
 	
 	#if OPT_A3
+	// incement Page Faults (Disk) for stat tracking
+	vmstats_inc(6);
+	//this one was fixed from elf file
 	vmstats_inc(7);
 	#endif
 	

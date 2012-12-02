@@ -77,14 +77,9 @@ swap_shutdown()
 // read swap file entry and put it into some free physical page 
 // Also update page table entry (delete swap entry?)
 paddr_t swap_in(pid_t pid, vaddr_t va) {
-        
-	// increment "Page Faults from Swapfile" for stat counter
-        vmstats_inc(8);
-
 	int index;
 
 	lock_acquire(swap_mutex);
-
 	index = swap_search(pid, va);
 
 	if (index == -1) {
@@ -119,6 +114,11 @@ paddr_t swap_in(pid_t pid, vaddr_t va) {
 
 	// remove swap table entry
 	kfree(swap_array[index]);
+
+	// incement Page Faults (Disk) for stat tracking
+	vmstats_inc(6);
+	// increment "Page Faults from Swapfile" for stat counter
+	vmstats_inc(8);
 
 	return pa;
 }
