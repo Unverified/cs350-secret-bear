@@ -66,9 +66,9 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
 	// out of physical memory
 	if(page_index == -1) {
 		page_index = get_fifo_page();
-		kprintf("got fifo page: %d\n", page_index);
+		//kprintf("got fifo page: %d, %p\n", page_index, page_table[page_index].vaddr);
 		swap_out(page_table[page_index].pid, page_table[page_index].paddr, page_table[page_index].vaddr);
-		return 0;
+		bzero(PADDR_TO_KVADDR(page_table[page_index].paddr), PAGE_SIZE);
 	}
 
 	page_table[page_index].vaddr = vaddr;

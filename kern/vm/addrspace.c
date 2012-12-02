@@ -107,11 +107,18 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+	if(paddr != 0) {
+			//kprintf("in pt faultaddress: %p result: %p\n", faultaddress, paddr);
+		}
 
 	if(paddr == 0){
 		// incement Page Faults (Disk) for stat tracking
 		vmstats_inc(6);
+		//kprintf("seaching swapspace for: %d %p\n", curthread->t_pid, faultaddress);
 		paddr = swap_in(curthread->t_pid, faultaddress);
+		if(paddr != 0) {
+			//kprintf("in swap faultaddress: %p result: %p\n", faultaddress, paddr);
+		}
 	}
 	
 	if(paddr == 0){
@@ -123,9 +130,13 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			if(segdef != NULL){
 				//loading a new segment into memory
 				result = pt_alloc_page(curthread->t_pid, faultaddress);
+//kprintf("in load faultaddress: %p result: %p\n", faultaddress, result);
 				if(!result) {
 					return ENOMEM;
 				}
+
+				bzero(PADDR_TO_KVADDR(result), PAGE_SIZE);
+
 				//need to be able to write to tlb until completely loaded
 				int storeloc;
 				
@@ -159,6 +170,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				}
 				splx(spl);
 			}else{
+				//kprintf("faultaddress: %p\n", faultaddress);
 				//stack
 				if(faultaddress < as->stackb || faultaddress > as->stackt){
 					return EFAULT;
@@ -168,6 +180,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				if(!result) {
 					return ENOMEM;
 				}
+
+				bzero(PADDR_TO_KVADDR(result), PAGE_SIZE);
 
 				spl = splhigh(); //dont want to let anyone do anything until block is zeroed
 				result = tlb_write(faultaddress, NULL);

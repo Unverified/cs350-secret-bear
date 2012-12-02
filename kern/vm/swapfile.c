@@ -7,6 +7,7 @@
 #include <vfs.h>
 #include <swapfile.h>
 #include <vm.h>
+#include <vm_tlb.h>
 #include <uw-vmstats.h>
 
 /* Maximum number of pages in the swap file */
@@ -78,9 +79,6 @@ swap_shutdown()
 // Also update page table entry (delete swap entry?)
 paddr_t swap_in(pid_t pid, vaddr_t va) {
         
-	// increment "Page Faults from Swapfile" for stat counter
-        vmstats_inc(8);
-
 	int index;
 
 	lock_acquire(swap_mutex);
@@ -88,10 +86,12 @@ paddr_t swap_in(pid_t pid, vaddr_t va) {
 	index = swap_search(pid, va);
 
 	if (index == -1) {
-
 		lock_release(swap_mutex);
 		return 0;
 	}
+
+	// page is in the swapfile increment "Page Faults from Swapfile" for stat counter
+        vmstats_inc(8);
 
 	// get data from swap file and store in k_data
 	struct uio uio;
@@ -115,10 +115,12 @@ paddr_t swap_in(pid_t pid, vaddr_t va) {
 	pa = pt_alloc_page(swap_array[index]->pid, swap_array[index]->va); 
 
 	// copy memory from holder to physical page
-	memmove((void *) PADDR_TO_KVADDR(k_data), (const void *)PADDR_TO_KVADDR(pa), PAGE_SIZE);
+	memmove((void *) PADDR_TO_KVADDR(pa), (const void *)k_data, PAGE_SIZE);
 
 	// remove swap table entry
-	kfree(swap_array[index]);
+	swap_array[index]->pid = 0;
+	swap_array[index]->va = 0;
+	swap_array[index]->offset = 0;
 
 	return pa;
 }
@@ -127,7 +129,6 @@ paddr_t swap_in(pid_t pid, vaddr_t va) {
 // evict corresponding page table entry and shoot down TLB entry
 // return -1 in case there's no more room
 int swap_out(pid_t pid, paddr_t pa, vaddr_t va) {
-
         // increase "Swapfile Writes" stat count
         vmstats_inc(9);
 
@@ -135,8 +136,8 @@ int swap_out(pid_t pid, paddr_t pa, vaddr_t va) {
 	struct uio uio;
 
         // copy from pa to temporary k_data
-        memmove((void *) PADDR_TO_KVADDR(pa), (const void *)PADDR_TO_KVADDR(&k_data), PAGE_SIZE);
-
+        memmove((void *) k_data, (const void *)PADDR_TO_KVADDR(pa), PAGE_SIZE);
+	
         lock_acquire(swap_mutex);
 
 	// find free swap file entry
@@ -159,11 +160,17 @@ int swap_out(pid_t pid, paddr_t pa, vaddr_t va) {
                 return result;
         }
 
+	swap_array[index]->pid = pid;
+	kprintf("storing va: %d %p\n", pid, va);
+	swap_array[index]->va = va;
+	swap_array[index]->offset = index*PAGE_SIZE;
+
+	tlb_invalidate();
+
 	// call evict function which will update page table entry etc
-	pt_free_page_swap (pid, va);
+	//pt_free_page_swap (pid, va);
 
 	lock_release(swap_mutex);
-
 	return 0;
 }
 
