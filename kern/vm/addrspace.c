@@ -59,28 +59,6 @@ free_kpages(vaddr_t addr)
 	pt_free_kpage(addr);
 }
 
-static
-int
-vm_zero_block(vaddr_t vaddr)
-{
-	struct uio u;
-	int result;
-
-	u.uio_iovec.iov_ubase = (userptr_t)vaddr;
-	u.uio_iovec.iov_len = PAGE_SIZE;
-	u.uio_resid = PAGE_SIZE;
-	u.uio_offset = 0;
-	u.uio_segflg = UIO_USERSPACE;
-	u.uio_rw = UIO_READ;
-	u.uio_space = curthread->t_vmspace;
-	
-	
-	result = uiomovezeros(PAGE_SIZE, &u);
-	vmstats_inc(5);
-
-	return result;
-}
-
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
@@ -108,8 +86,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
 
+	char reload = 1;
 	if(paddr == 0){
 		paddr = swap_in(curthread->t_pid, faultaddress);
+		reload = 0;
 	}
 	
 	if(paddr == 0){
@@ -120,8 +100,8 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			
 			if(segdef != NULL){
 				//loading a new segment into memory
-				result = pt_alloc_page(curthread->t_pid, faultaddress);
-				if(!result) {
+				paddr = pt_alloc_page(curthread->t_pid, faultaddress);
+				if(!paddr) {
 					return ENOMEM;
 				}
 				//need to be able to write to tlb until completely loaded
@@ -162,24 +142,28 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					return EFAULT;
 				}
 				
-				result = pt_alloc_page(curthread->t_pid, faultaddress);
-				if(!result) {
+				spl = splhigh(); //dont want to let anyone do anything until block is zeroed
+				paddr = pt_alloc_page(curthread->t_pid, faultaddress);
+				if(!paddr) {
+					splx(spl);
 					return ENOMEM;
 				}
 
-				spl = splhigh(); //dont want to let anyone do anything until block is zeroed
 				result = tlb_write(faultaddress, NULL);
 				if(result){
 					splx(spl);
 					return result;
 				}
-				result = vm_zero_block(faultaddress);
+				vmstats_inc(5);
+				bzero((userptr_t)faultaddress, PAGE_SIZE);
 				splx(spl);
 			}		
 		}	
 	}else{
 		//address is in the page table, put back into the TLB
-		vmstats_inc(4);//TLB RELOAD
+		if(reload){
+			vmstats_inc(4); //TLB RELOAD
+		}
 		result = tlb_write(faultaddress, NULL);
 	}
 		
