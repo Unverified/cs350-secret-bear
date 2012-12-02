@@ -62,16 +62,26 @@ free_kpages(vaddr_t addr)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	int spl, result;
+	int spl, result, writeable;
 	struct addrspace *as;
 
 	faultaddress &= PAGE_FRAME;
 	DEBUG(DB_VM, "vm: fault: 0x%x\n", faultaddress);
 
+	// Set all pages to not be writeable cause we want to know when they are writen to
 	switch (faulttype) {
 		//Invalid access throw fault exception
 	    case VM_FAULT_READONLY:
-			return EFAULT;
+			writeable = pt_is_writeable(curthread->t_pid, faultaddress);
+			if(writeable) {
+				pt_set_dirty(curthread->t_pid, faultaddress);
+				tlb_update(faultaddress, TLBLO_DIRTY);
+				return 0;
+			}
+			else {
+				sys__exit(EFAULT);
+				return EFAULT;
+			}
 		//Valid cases further action required
 	    case VM_FAULT_READ:
 	    case VM_FAULT_WRITE:
@@ -100,16 +110,17 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			
 			if(segdef != NULL){
 				//loading a new segment into memory
-				paddr = pt_alloc_page(curthread->t_pid, faultaddress);
+				paddr = pt_alloc_page(curthread->t_pid, faultaddress, (segdef->sd_flags & TLBLO_DIRTY), 0);
 				if(!paddr) {
 					return ENOMEM;
 				}
+
 				//need to be able to write to tlb until completely loaded
 				int storeloc;
 				
 				//Need to ensure nothing happens to this block until it is set up properly
 				spl = splhigh();
-				result = tlb_write(faultaddress, &storeloc);
+				result = tlb_write(faultaddress, TLBLO_DIRTY, &storeloc);
 				if(result){
 					splx(spl);
 					return result;
@@ -142,21 +153,20 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					return EFAULT;
 				}
 				
-				spl = splhigh(); //dont want to let anyone do anything until block is zeroed
-				paddr = pt_alloc_page(curthread->t_pid, faultaddress);
+				paddr = pt_alloc_page(curthread->t_pid, faultaddress, 1, 0);
 				if(!paddr) {
-					splx(spl);
 					return ENOMEM;
 				}
 
-				result = tlb_write(faultaddress, NULL);
+				spl = splhigh(); //dont want to let anyone do anything until block is zeroed
+				result = tlb_write(faultaddress, 0, NULL);
 				if(result){
 					splx(spl);
 					return result;
 				}
-				vmstats_inc(5);
 				bzero((userptr_t)faultaddress, PAGE_SIZE);
 				splx(spl);
+				vmstats_inc(5);
 			}		
 		}	
 	}else{
@@ -164,7 +174,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		if(reload){
 			vmstats_inc(4); //TLB RELOAD
 		}
-		result = tlb_write(faultaddress, NULL);
+		result = tlb_write(faultaddress, 0, NULL);
 	}
 		
 	return result;

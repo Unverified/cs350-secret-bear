@@ -9,6 +9,7 @@
 #include <vfs.h>
 #include <test.h>
 #include <kern/limits.h>
+#include <pt.h>
 #include "opt-A2.h"
 
 int
@@ -27,7 +28,9 @@ sys_execv(const_userptr_t *progname, const_userptr_t *args[])
 	}
 
 	k_progname = kmalloc(PATH_MAX);
-	result = copyinstr(progname,k_progname,PATH_MAX,&actual);	
+
+	result = copyinstr(progname,k_progname,PATH_MAX,&actual);
+
 	if(result) {
 		goto fail1;
 	} else if (*k_progname == '\0') {
@@ -81,6 +84,8 @@ sys_execv(const_userptr_t *progname, const_userptr_t *args[])
 	struct addrspace *prev_as = curthread->t_vmspace;
 	struct addrspace *new_as = as_create();
 	
+	pt_free_pages(curthread->t_pid);
+
 	/* Create a new address space. */
 	curthread->t_vmspace = new_as;
 	if (curthread->t_vmspace==NULL) {
