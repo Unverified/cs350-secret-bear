@@ -64,8 +64,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int spl, result;
 	struct addrspace *as;
 
-	spl = splhigh();
-
 	faultaddress &= PAGE_FRAME;
 	DEBUG(DB_VM, "vm: fault: 0x%x\n", faultaddress);
 
@@ -78,7 +76,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	    case VM_FAULT_WRITE:
 			break;
 	    default:
-			splx(spl);
 			return EINVAL;
 	}
 
@@ -109,6 +106,9 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				}
 				//need to be able to write to tlb until completely loaded
 				int storeloc;
+				
+				//Need to ensure nothing happens to this block until it is set up properly
+				spl = splhigh();
 				result = tlb_write(faultaddress, &storeloc);
 				if(result){
 					splx(spl);
@@ -135,6 +135,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				if((segdef->sd_flags & TLBLO_DIRTY) == 0){
 					result = tlb_set_read_only(segdef, storeloc);
 				}
+				splx(spl);
 			}else{
 				//stack
 				if(faultaddress < as->stackb || faultaddress > as->stackt){
@@ -147,14 +148,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				}
 
 				result = tlb_write(faultaddress, NULL);
+				vmstats_inc(5);
 			}		
 		}	
 	}else{
 		//address is in the page table, put back into the TLB
+		vmstats_inc(4);//TLB RELOAD
 		result = tlb_write(faultaddress, NULL);
 	}
 		
-	splx(spl);
 	return result;
 }
 /*************************************************/
