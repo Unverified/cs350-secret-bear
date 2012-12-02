@@ -76,7 +76,6 @@ vm_zero_block(vaddr_t vaddr)
 	
 	
 	result = uiomovezeros(PAGE_SIZE, &u);
-	vmstats_inc(5);
 
 	return result;
 }
@@ -117,11 +116,16 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 	paddr_t paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+	if(paddr) {
+		vmstats_inc(4);
+	}
 
 	if(paddr == 0){
-		// incement Page Faults (Disk) for stat tracking
-		vmstats_inc(6);
 		paddr = swap_in(curthread->t_pid, faultaddress);
+		if(paddr) {
+			vmstats_inc(6);
+			vmstats_inc(8);
+		}
 	}
 	
 	if(paddr == 0){
@@ -165,10 +169,10 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 					splx(spl);
 					return result;
 				}
-				
-				if((segdef->sd_flags & TLBLO_DIRTY) == 0){
-					result = tlb_set_read_only(segdef, storeloc);
-				}
+
+				result = tlb_set_read_only(segdef, storeloc);
+				vmstats_inc(7);
+				vmstats_inc(6);
 				splx(spl);
 			}else{
 				//stack
@@ -182,18 +186,18 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 				}
 
 				spl = splhigh(); //dont want to let anyone do anything until block is zeroed
+				//int storeloc;
 				result = tlb_write(faultaddress, 0, NULL);
 				if(result){
 					splx(spl);
 					return result;
 				}
-				result = vm_zero_block(faultaddress);
+				vmstats_inc(5);
 				splx(spl);
 			}		
 		}	
 	}else{
 		//address is in the page table, put back into the TLB
-		vmstats_inc(4);//TLB RELOAD
 		result = tlb_write(faultaddress, 0, NULL);
 	}
 		

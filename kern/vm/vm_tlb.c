@@ -120,6 +120,17 @@ int tlb_set_read_only(struct segdef *sd, int storeloc) {
 	return EFAULT;
 }
 
+void tlb_invalidate_entry(vaddr_t vaddr) {
+	int i;
+	u_int32_t ehi, elo;
+	for (i=0; i<NUM_TLB; i++) {
+		TLB_Read(&ehi, &elo, i);
+		if ((elo & TLBLO_VALID) && (ehi == vaddr)) {
+			TLB_Write(TLBHI_INVALID(i), TLBLO_INVALID(), i);
+		}
+	}
+}
+
 void tlb_invalidate() {
 	int i, spl;
 

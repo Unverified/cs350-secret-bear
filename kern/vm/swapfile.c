@@ -92,9 +92,6 @@ paddr_t swap_in(pid_t pid, vaddr_t va) {
 		return 0;
 	}
 
-	// page is in the swapfile increment "Page Faults from Swapfile" for stat counter
-        vmstats_inc(8);
-
 	// get data from swap file and store in k_data
 	struct uio uio;
 

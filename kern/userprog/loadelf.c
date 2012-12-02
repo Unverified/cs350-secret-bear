@@ -90,10 +90,6 @@ load_segment(struct vnode *v, off_t offset, vaddr_t vaddr,
 		result = uiomovezeros(fillamt, &u);
 	}
 	
-	#if OPT_A3
-	vmstats_inc(7);
-	#endif
-	
 	return result;
 }
 

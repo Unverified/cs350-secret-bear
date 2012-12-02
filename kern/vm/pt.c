@@ -66,11 +66,13 @@ static paddr_t alloc_page(pid_t pid, vaddr_t vaddr, int writeable, int dirty) {
 	// out of physical memory
 	if(page_index == -1) {
 		page_index = get_fifo_page();
-		//if(page_table[page_index].dirty){
+		if(page_table[page_index].dirty){
 			swap_out(page_table[page_index].pid, page_table[page_index].paddr, page_table[page_index].vaddr);
-		//}
-		tlb_invalidate();
+		}
+		tlb_invalidate_entry(page_table[page_index].vaddr);
 	}
+
+	bzero(PADDR_TO_KVADDR(page_table[page_index].paddr), PAGE_SIZE);
 
 	page_table[page_index].vaddr = vaddr;
 	page_table[page_index].pid = pid;
@@ -264,6 +266,7 @@ void pt_free_page_swap (pid_t pid, vaddr_t va) {
 	page_table[index].vaddr = 0;
 	page_table[index].pid = 0;
 	page_table[index].npages = 0;
+	page_table[index].dirty = 0;
 	free_page(index);
 
 	//lock_release(pt_mutex);
@@ -279,6 +282,7 @@ void pt_free_pages(pid_t pid) {
 			page_table[i].vaddr = 0;
 			page_table[i].pid = 0;
 			page_table[i].npages = 0;
+			page_table[i].dirty = 0;
 			free_page(i);
 		}
 	}
@@ -301,7 +305,7 @@ void pt_free_kpage(vaddr_t vaddr) {
 					page_table[i+j].vaddr = 0;
 					page_table[i+j].pid = 0;
 					page_table[i+j].npages = 0;
-
+					page_table[i+j].dirty = 0;
 					free_page(i+j);
 				}
 				break;
