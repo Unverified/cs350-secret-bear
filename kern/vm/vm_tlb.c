@@ -36,7 +36,7 @@ static int check_as(struct addrspace *as) {
 }
 
 /* dirtybit: TLBLO_DIRTY if page is writeable, 0 if not */
-int tlb_write(vaddr_t faultaddress, int *storeloc) {
+int tlb_write(vaddr_t faultaddress, u_int32_t writeable, int *storeloc) {
 	paddr_t paddr;
 	int i, result;
 	u_int32_t ehi, elo;
@@ -75,7 +75,7 @@ int tlb_write(vaddr_t faultaddress, int *storeloc) {
 	}
 
 	ehi = faultaddress;
-	elo = paddr | TLBLO_DIRTY | TLBLO_VALID;
+	elo = paddr | writeable | TLBLO_VALID;
 	TLB_Write(ehi, elo, i);
 
 	vmstats_inc(0);
@@ -84,6 +84,23 @@ int tlb_write(vaddr_t faultaddress, int *storeloc) {
 		*storeloc = i;
 	}
 	return 0;
+}
+
+void tlb_update(vaddr_t faultaddress, u_int32_t writeable) {
+	paddr_t paddr;
+	int i, result;
+	u_int32_t ehi, elo;
+
+	paddr = pt_get_paddr(curthread->t_pid, faultaddress);
+
+	for (i=0; i<NUM_TLB; i++) {
+		TLB_Read(&ehi, &elo, i);
+		if ((elo & TLBLO_VALID) && (ehi == faultaddress)) {
+			ehi = faultaddress;
+			elo = paddr | writeable | TLBLO_VALID;
+			TLB_Write(ehi, elo, i);
+		}
+	}
 }
 
 /* 
@@ -96,7 +113,7 @@ int tlb_set_read_only(struct segdef *sd, int storeloc) {
 	TLB_Read(&ehi, &elo, storeloc);
 	if (elo & TLBLO_VALID && ehi >= sd->sd_vbase && ehi < sd->sd_vbase + sd->sd_segsz) {
 		elo &= ~TLBLO_DIRTY;
-			
+		
 		TLB_Write(ehi, elo, storeloc);
 		return 0;
 	}

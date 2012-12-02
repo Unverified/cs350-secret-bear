@@ -29,19 +29,20 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	page_table = (struct page_table_entry *)pt_vaddr;
 	pt_size = (sizeof(struct page_table_entry)*total_pages + PAGE_SIZE - 1)/PAGE_SIZE;
 
-	//kprintf("total_pages: %d coremap_size: %d pt_size: %d\n", total_pages, coremap_size, pt_size);
-	//kprintf("starting_paddr: %p pt_paddr: %p coremap_vaddr: %p page_table: %p\n", starting_paddr, pt_paddr, PADDR_TO_KVADDR(starting_paddr), page_table);
-
 	/* Put the coremap pages into to page table */
 	for(i=0; i<coremap_size; i++) {
 		page_table[i].paddr = starting_paddr + i * PAGE_SIZE;
 		page_table[i].vaddr = coremap_vaddr + i * PAGE_SIZE;
 		page_table[i].npages = coremap_vaddr - i;
+		page_table[i].writeable = 1;
+		page_table[i].dirty = 0;
 	}
 
 	/* Initialized the paget_table. */
 	for(i=coremap_size; i<total_pages; i++) {
 		page_table[i].paddr = starting_paddr + i * PAGE_SIZE;
+		page_table[i].writeable = 1;
+		page_table[i].dirty = 0;
 		
 		if(i < pt_size + coremap_size) {
 			/* Put the page tables pages into to page table */
@@ -57,23 +58,25 @@ int pt_init(int pages, int coremap_size, paddr_t starting_paddr, vaddr_t coremap
 	return pt_size;
 }
 
-static paddr_t alloc_page(pid_t pid, vaddr_t vaddr) {
+static paddr_t alloc_page(pid_t pid, vaddr_t vaddr, int writeable, int dirty) {
 	int page_index;
 
 	page_index = get_free_page();
-	//kprintf("got free page: %d\n", page_index);
 	
 	// out of physical memory
 	if(page_index == -1) {
 		page_index = get_fifo_page();
-		//kprintf("got fifo page: %d, %p\n", page_index, page_table[page_index].vaddr);
-		swap_out(page_table[page_index].pid, page_table[page_index].paddr, page_table[page_index].vaddr);
-		bzero(PADDR_TO_KVADDR(page_table[page_index].paddr), PAGE_SIZE);
+		//if(page_table[page_index].dirty){
+			swap_out(page_table[page_index].pid, page_table[page_index].paddr, page_table[page_index].vaddr);
+		//}
+		tlb_invalidate();
 	}
 
 	page_table[page_index].vaddr = vaddr;
 	page_table[page_index].pid = pid;
 	page_table[page_index].npages = 1;
+	page_table[page_index].writeable = writeable;
+	page_table[page_index].dirty = dirty;
 
 	return page_table[page_index].paddr;
 }
@@ -95,7 +98,7 @@ paddr_t pt_get_paddr(pid_t pid, vaddr_t vaddr) {
 			
 			if(vaddr >= vbottom && vaddr < vtop) {
 				u_int32_t offset = vaddr - vbottom;
-				paddr = page_table[i].paddr + offset;
+				paddr = page_table[i].paddr;
 				break;
 			}
 		}
@@ -107,11 +110,11 @@ paddr_t pt_get_paddr(pid_t pid, vaddr_t vaddr) {
 }
 
 /* Allocates a single page of memory. Currently does not do page replacement. */
-paddr_t pt_alloc_page(pid_t pid, vaddr_t vaddr) {
+paddr_t pt_alloc_page(pid_t pid, vaddr_t vaddr, int writeable, int dirty) {
 	paddr_t paddr;
 
 	lock_acquire(pt_mutex);
-	paddr = alloc_page(pid, vaddr);
+	paddr = alloc_page(pid, vaddr, writeable, dirty);
 	lock_release(pt_mutex);
 
 	return paddr;
@@ -165,8 +168,7 @@ int pt_copymem(pid_t curpid, pid_t pid) {
 
 	for(i = 0; i < total_pages; i++) {
 		if(page_table[i].pid == curpid) {
-			//kprintf("alloc page for pid %d\n", pid);
-			paddr = alloc_page(pid, page_table[i].vaddr);
+			paddr = alloc_page(pid, page_table[i].vaddr, page_table[i].writeable, page_table[i].dirty);
 			if(paddr == 0) {
 				lock_release(pt_mutex);
 				return ENOMEM;
@@ -179,6 +181,48 @@ int pt_copymem(pid_t curpid, pid_t pid) {
 	lock_release(pt_mutex);
 
 	return 0;
+}
+
+int pt_is_writeable(int pid, vaddr_t vaddr) {
+	int i, writeable;
+
+	lock_acquire(pt_mutex);
+
+	for(i = 0; i < total_pages; i++) {
+		if(page_table[i].pid == pid) {
+			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
+			vaddr_t vbottom = page_table[i].vaddr;
+			
+			if(vaddr >= vbottom && vaddr < vtop) {
+				writeable = page_table[i].writeable;
+				break;
+			}
+		}
+	}
+
+	lock_release(pt_mutex);
+
+	return writeable;
+}
+
+void pt_set_dirty(int pid, vaddr_t vaddr) {
+	int i;
+
+	lock_acquire(pt_mutex);
+
+	for(i = 0; i < total_pages; i++) {
+		if(page_table[i].pid == pid) {
+			vaddr_t vtop = page_table[i].vaddr + PAGE_SIZE;
+			vaddr_t vbottom = page_table[i].vaddr;
+			
+			if(vaddr >= vbottom && vaddr < vtop) {
+				page_table[i].dirty = 1;
+				break;
+			}
+		}
+	}
+
+	lock_release(pt_mutex);
 }
 
 /* 
