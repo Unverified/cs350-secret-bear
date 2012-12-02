@@ -91,7 +91,6 @@ load_segment(struct vnode *v, off_t offset, vaddr_t vaddr,
 	}
 	
 	#if OPT_A3
-	vmstats_inc(6);
 	vmstats_inc(7);
 	#endif
 	
